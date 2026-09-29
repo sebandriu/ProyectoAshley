@@ -1,43 +1,35 @@
-import { useLocation } from "react-router-dom";
-
 function Header() {
-  const location = useLocation();
-
-  const titles = {
-    "/": "Resumen comercial",
-    "/cotizaciones": "Cotizaciones",
-    "/ventas": "Ventas",
-    "/productos": "Productos y demanda",
-    "/tiendas": "Tiendas y vendedores",
-    "/importacion": "Importar datos"
-  };
-
   return (
     <header className="topbar">
       <div>
-        <h1>{titles[location.pathname] || "Ashley Analytics"}</h1>
-        <p>Mockup version 1.0</p>
+        <h1>Store Manager</h1>
+        <p>Version 1.0 - Prueba</p>
       </div>
 
-      {location.pathname !== "/importacion" && (
-        <div className="topbar-filters">
-          <select>
-            <option>Período</option>
-          </select>
+      <div className="topbar-filters">
+        <select>
+          <option>Período</option>
+          <option>Últimos 30 días</option>
+          <option>Últimos 90 días</option>
+          <option>Año actual</option>
+        </select>
 
-          <select>
-            <option>Tienda</option>
-          </select>
+        <select>
+          <option>Tienda</option>
+          <option>Antofagasta</option>
+          <option>Todas</option>
+        </select>
 
-          <select>
-            <option>Vendedor</option>
-          </select>
+        <select>
+          <option>Vendedor</option>
+          <option>Todos</option>
+        </select>
 
-          <select>
-            <option>Producto</option>
-          </select>
-        </div>
-      )}
+        <select>
+          <option>Producto</option>
+          <option>Todos</option>
+        </select>
+      </div>
     </header>
   );
 }

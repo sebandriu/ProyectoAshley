@@ -1,76 +1,49 @@
 import { NavLink } from "react-router-dom";
-
 import {
   LayoutDashboard,
   FileText,
-  DollarSign,
-  Sofa,
+  BadgeDollarSign,
+  Package,
   Users,
-  Upload
+  Upload,
 } from "lucide-react";
+import AppLogo from "../AppLogo/AppLogo";
+
+const items = [
+  { to: "/", label: "Resumen", icon: LayoutDashboard },
+  { to: "/cotizaciones", label: "Cotizaciones", icon: FileText },
+  { to: "/ventas", label: "Ventas", icon: BadgeDollarSign },
+  { to: "/productos", label: "Productos", icon: Package },
+  { to: "/tiendas", label: "Tiendas y vendedores", icon: Users },
+  { to: "/importacion", label: "Importación", icon: Upload },
+];
 
 function Sidebar() {
-  const menu = [
-    {
-      path: "/",
-      icon: LayoutDashboard,
-      label: "Resumen"
-    },
-    {
-      path: "/cotizaciones",
-      icon: FileText,
-      label: "Cotizaciones"
-    },
-    {
-      path: "/ventas",
-      icon: DollarSign,
-      label: "Ventas"
-    },
-    {
-      path: "/productos",
-      icon: Sofa,
-      label: "Productos"
-    },
-    {
-      path: "/tiendas",
-      icon: Users,
-      label: "Tiendas y vendedores"
-    }
-  ];
-
   return (
     <aside className="sidebar">
-      <div className="sidebar-logo">
-        A
+      <div className="sidebar-top">
+        <AppLogo />
       </div>
 
       <nav className="sidebar-menu">
-        {menu.map(({ path, icon: Icon, label }) => (
-          <NavLink
-            key={path}
-            to={path}
-            end={path === "/"}
-            className={({ isActive }) =>
-              `sidebar-link ${isActive ? "active" : ""}`
-            }
-            title={label}
-          >
-            <Icon size={19} strokeWidth={1.8} />
-          </NavLink>
-        ))}
-      </nav>
+        {items.map((item) => {
+          const Icon = item.icon;
 
-      <div className="sidebar-bottom">
-        <NavLink
-          to="/importacion"
-          className={({ isActive }) =>
-            `sidebar-link ${isActive ? "active" : ""}`
-          }
-          title="Importar datos"
-        >
-          <Upload size={19} strokeWidth={1.8} />
-        </NavLink>
-      </div>
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === "/"}
+              className={({ isActive }) =>
+                `sidebar-link ${isActive ? "active" : ""}`
+              }
+            >
+              <Icon size={18} />
+              <span>{item.label}</span>
+            </NavLink>
+          );
+        })}
+      </nav>
     </aside>
   );
 }

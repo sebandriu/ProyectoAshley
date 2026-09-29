@@ -12,7 +12,7 @@
 .app-main {
   flex: 1;
   min-width: 0;
-  width: calc(100% - 54px);
+  width: calc(100% - 230px);
 }
 
 /* =========================================
@@ -20,74 +20,92 @@
 ========================================= */
 
 .sidebar {
-  width: 54px;
-  min-width: 54px;
-
+  width: 230px;
+  min-width: 230px;
   background: #16181d;
   border-right: 1px solid #25282e;
-
   display: flex;
   flex-direction: column;
-  align-items: center;
-
-  padding: 8px 0;
+  padding: 14px 12px;
+  gap: 16px;
 }
 
-.sidebar-logo {
-  width: 34px;
-  height: 34px;
-
-  background: #ffffff;
-  color: #16181d;
-
-  border-radius: 7px;
-
+.sidebar-top {
   display: flex;
-  justify-content: center;
   align-items: center;
-
-  font-size: 14px;
-  font-weight: 800;
-
-  margin-bottom: 14px;
 }
+
+/* =========================================
+   LOGO
+========================================= */
+
+.app-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #f7941d;
+}
+
+.app-logo-icon {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+}
+
+.app-logo-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.app-logo-text strong {
+  color: #ffffff;
+  font-size: 15px;
+  line-height: 1.1;
+  font-weight: 700;
+}
+
+.app-logo-text span {
+  color: #9aa0aa;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+/* =========================================
+   MENÚ
+========================================= */
 
 .sidebar-menu {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .sidebar-link {
-  width: 38px;
-  height: 38px;
-
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 12px;
+  color: #a6acb6;
+  border-radius: 10px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
 
-  color: #888d98;
-
-  border-radius: 7px;
-
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
+.sidebar-link span {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .sidebar-link:hover {
-  background: #25282e;
+  background: #24272d;
   color: #ffffff;
 }
 
 .sidebar-link.active {
-  background: #ffffff;
-  color: #16181d;
-}
-
-.sidebar-bottom {
-  margin-top: auto;
+  background: #f7941d;
+  color: #ffffff;
 }
 
 /* =========================================
@@ -95,19 +113,14 @@
 ========================================= */
 
 .topbar {
-  min-height: 58px;
-
-  padding: 8px 18px;
-
+  min-height: 64px;
+  padding: 10px 18px;
   background: #ffffff;
   border-bottom: 1px solid #e4e6e9;
-
   display: flex;
   justify-content: space-between;
   align-items: center;
-
   gap: 20px;
-
   width: 100%;
 }
 
@@ -117,56 +130,39 @@
 
 .topbar h1 {
   margin: 0;
-
-  font-size: 16px;
-  font-weight: 650;
-
+  font-size: 18px;
+  font-weight: 700;
   color: #202226;
-
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .topbar p {
-  margin: 2px 0 0;
-
-  font-size: 10px;
+  margin: 3px 0 0;
+  font-size: 11px;
   color: #90949c;
-
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .topbar-filters {
   display: flex;
   align-items: center;
-
-  gap: 6px;
-
+  gap: 8px;
   min-width: 0;
+  flex-wrap: wrap;
 }
 
 .topbar select {
-  height: 31px;
-  min-width: 105px;
-
+  height: 34px;
+  min-width: 115px;
   border: 1px solid #dedfe2;
-  border-radius: 5px;
-
+  border-radius: 18px;
   background: #ffffff;
-
-  padding: 0 7px;
-
-  font-size: 11px;
+  padding: 0 12px;
+  font-size: 12px;
   color: #555960;
-
   outline: none;
 }
 
 .topbar select:focus {
-  border-color: #999da4;
+  border-color: #f7941d;
 }
 
 /* =========================================
@@ -175,19 +171,15 @@
 
 .app-content {
   padding: 10px;
-
   width: 100%;
   max-width: 100%;
-
   overflow-x: hidden;
 }
 
 .page {
   display: flex;
   flex-direction: column;
-
   width: 100%;
-
   gap: 8px;
 }
 
@@ -197,48 +189,31 @@
 
 .kpi-grid {
   display: grid;
-
   grid-template-columns: repeat(5, minmax(0, 1fr));
-
-  gap: 7px;
-
+  gap: 8px;
   width: 100%;
 }
 
 .kpi-card {
   min-width: 0;
-
   background: #ffffff;
-
   border: 1px solid #e2e4e7;
-  border-radius: 7px;
-
-  padding: 9px 11px;
+  border-radius: 10px;
+  padding: 10px 12px;
 }
 
 .kpi-card span {
   display: block;
-
   color: #777c85;
-
   font-size: 10px;
-
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .kpi-card strong {
   display: block;
-
   margin-top: 4px;
-
   font-size: clamp(16px, 1.5vw, 20px);
-  font-weight: 650;
-
+  font-weight: 700;
   color: #25272b;
-
-  overflow-wrap: anywhere;
 }
 
 /* =========================================
@@ -247,52 +222,36 @@
 
 .dashboard-grid {
   display: grid;
-
-  grid-template-columns:
-    minmax(0, 2fr)
-    minmax(250px, 1fr);
-
+  grid-template-columns: minmax(0, 2fr) minmax(250px, 1fr);
   gap: 8px;
-
   width: 100%;
 }
 
 .panel {
   min-width: 0;
-
   background: #ffffff;
-
   border: 1px solid #e2e4e7;
-  border-radius: 7px;
-
-  padding: 11px;
+  border-radius: 10px;
+  padding: 12px;
 }
 
 .panel h2 {
-  margin: 0 0 9px;
-
-  font-size: 12px;
-  font-weight: 600;
-
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
   color: #33363b;
 }
 
 .empty-content {
   min-height: 205px;
-
   border: 1px dashed #d7d9dd;
-  border-radius: 5px;
-
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-
   text-align: center;
-
   padding: 12px;
-
   color: #a0a4aa;
-
   font-size: 11px;
 }
 
@@ -306,22 +265,15 @@
 
 .upload-area {
   min-height: 280px;
-
   border: 1px dashed #cacdd2;
-  border-radius: 6px;
-
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
-
   align-items: center;
   justify-content: center;
-
   gap: 7px;
-
   padding: 20px;
-
   text-align: center;
-
   color: #72767e;
 }
 
@@ -336,69 +288,34 @@
 
 .upload-area button {
   min-height: 34px;
-
   margin-top: 6px;
-
   border: 0;
-  border-radius: 5px;
-
-  background: #1d1f23;
+  border-radius: 8px;
+  background: #f7941d;
   color: #ffffff;
-
   padding: 0 14px;
-
   cursor: pointer;
 }
 
 .upload-area button:hover {
-  background: #34373d;
+  background: #df8518;
 }
 
 /* =========================================
-   NOTEBOOK / PANTALLA MEDIANA
+   RESPONSIVE
 ========================================= */
 
 @media (max-width: 1200px) {
   .kpi-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-
-  .topbar {
-    align-items: flex-start;
-  }
-
-  .topbar-filters {
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
 }
-
-/* =========================================
-   TABLET
-========================================= */
 
 @media (max-width: 900px) {
   .topbar {
     flex-direction: column;
     align-items: stretch;
-
-    gap: 8px;
-
-    padding: 9px 12px;
-  }
-
-  .topbar-filters {
-    display: grid;
-
-    grid-template-columns:
-      repeat(4, minmax(0, 1fr));
-
-    width: 100%;
-  }
-
-  .topbar select {
-    width: 100%;
-    min-width: 0;
+    gap: 10px;
   }
 
   .dashboard-grid {
@@ -406,173 +323,110 @@
   }
 
   .kpi-grid {
-    grid-template-columns:
-      repeat(3, minmax(0, 1fr));
-  }
-
-  .empty-content {
-    min-height: 170px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-/* =========================================
-   TABLET PEQUEÑA
-========================================= */
-
 @media (max-width: 700px) {
+  .sidebar {
+    width: 78px;
+    min-width: 78px;
+    padding: 12px 8px;
+  }
+
+  .app-main {
+    width: calc(100% - 78px);
+  }
+
+  .app-logo-text {
+    display: none;
+  }
+
+  .sidebar-link {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .sidebar-link span {
+    display: none;
+  }
+
   .kpi-grid {
-    grid-template-columns:
-      repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .topbar-filters {
-    grid-template-columns:
-      repeat(2, minmax(0, 1fr));
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .app-content {
-    padding: 8px;
+  .topbar select {
+    min-width: 0;
+    width: 100%;
   }
 }
-
-/* =========================================
-   CELULAR
-========================================= */
 
 @media (max-width: 520px) {
   .app-layout {
     display: block;
   }
 
-  .app-main {
-    width: 100%;
-  }
-
-  /*
-    La sidebar se convierte en
-    navegación inferior.
-  */
-
   .sidebar {
     position: fixed;
-
     z-index: 1000;
-
     bottom: 0;
     left: 0;
     right: 0;
-
     width: 100%;
     min-width: 0;
-    height: 54px;
-
+    height: 62px;
     flex-direction: row;
-
-    justify-content: center;
     align-items: center;
-
+    justify-content: center;
     border-right: none;
     border-top: 1px solid #25282e;
-
-    padding: 5px 6px;
+    padding: 6px;
   }
 
-  .sidebar-logo {
+  .sidebar-top {
     display: none;
   }
 
   .sidebar-menu {
-    flex: 1;
-
     flex-direction: row;
-
+    width: 100%;
     justify-content: space-evenly;
-
-    gap: 2px;
-  }
-
-  .sidebar-bottom {
-    margin-top: 0;
+    gap: 4px;
   }
 
   .sidebar-link {
-    width: 40px;
-    height: 40px;
+    width: 42px;
+    min-height: 42px;
+    padding: 0;
+    justify-content: center;
   }
 
-  .topbar {
-    padding: 9px 10px;
-  }
-
-  .topbar h1 {
-    font-size: 15px;
-  }
-
-  .topbar p {
-    font-size: 9px;
-  }
-
-  .topbar-filters {
-    grid-template-columns:
-      repeat(2, minmax(0, 1fr));
-
-    gap: 5px;
-  }
-
-  .topbar select {
-    height: 34px;
-
-    font-size: 11px;
+  .app-main {
+    width: 100%;
   }
 
   .app-content {
-    padding: 7px;
+    padding: 8px;
+    padding-bottom: 74px;
+  }
 
-    /*
-      espacio para la barra inferior
-    */
-    padding-bottom: 64px;
+  .topbar {
+    padding: 10px;
+  }
+
+  .topbar-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .kpi-grid {
-    grid-template-columns:
-      repeat(2, minmax(0, 1fr));
-
-    gap: 6px;
-  }
-
-  .kpi-card {
-    padding: 8px;
-  }
-
-  .kpi-card strong {
-    font-size: 17px;
-  }
-
-  .dashboard-grid {
-    gap: 7px;
-  }
-
-  .panel {
-    padding: 9px;
-  }
-
-  .empty-content {
-    min-height: 135px;
-  }
-
-  .empty-content.compact {
-    min-height: 75px;
-  }
-
-  .upload-area {
-    min-height: 220px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-
-/* =========================================
-   CELULAR MUY PEQUEÑO
-========================================= */
 
 @media (max-width: 360px) {
   .kpi-grid {
@@ -581,10 +435,5 @@
 
   .topbar-filters {
     grid-template-columns: 1fr;
-  }
-
-  .sidebar-link {
-    width: 36px;
-    height: 36px;
   }
 }
