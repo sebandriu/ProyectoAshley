@@ -16,7 +16,7 @@ function Header() {
     <header className="topbar">
       <div>
         <h1>{titles[location.pathname] || "Ashley Analytics"}</h1>
-        <p>Sistema de apoyo a la toma de decisiones comerciales</p>
+        <p>Mockup version 1.0</p>
       </div>
 
       {location.pathname !== "/importacion" && (
