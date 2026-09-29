@@ -6,6 +6,8 @@ html,
 body,
 #root {
   margin: 0;
+
+  width: 100%;
   min-width: 320px;
   min-height: 100%;
 }
@@ -22,6 +24,8 @@ body {
     sans-serif;
 
   background: #f6f7f9;
+
+  overflow-x: hidden;
 }
 
 button,
