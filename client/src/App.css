@@ -89,7 +89,9 @@
   padding: 0 12px;
   color: #a6acb6;
   border-radius: 10px;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .sidebar-link span {
@@ -120,12 +122,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 20px;
+  gap: 18px;
   width: 100%;
 }
 
-.topbar > div:first-child {
+.topbar-heading {
   min-width: 0;
+  flex-shrink: 0;
 }
 
 .topbar h1 {
@@ -141,28 +144,82 @@
   color: #90949c;
 }
 
-.topbar-filters {
+/* =========================================
+   FILTROS TIPO PILL SLICER
+========================================= */
+
+.filter-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 0;
+  justify-content: flex-end;
   flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
 }
 
-.topbar select {
+.filter-pill {
+  min-width: 126px;
+  max-width: 172px;
   height: 34px;
-  min-width: 115px;
-  border: 1px solid #dedfe2;
-  border-radius: 18px;
-  background: #ffffff;
-  padding: 0 12px;
-  font-size: 12px;
+  padding: 0 9px;
+
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  background: #f8f9fa;
+  border: 1px solid #e0e2e5;
+  border-radius: 999px;
+
   color: #555960;
-  outline: none;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
-.topbar select:focus {
+.filter-pill:hover {
+  background: #ffffff;
+  border-color: #c9ccd1;
+}
+
+.filter-pill:focus-within {
+  background: #ffffff;
   border-color: #f7941d;
+  box-shadow: 0 0 0 2px rgba(247, 148, 29, 0.12);
+}
+
+.filter-pill-icon {
+  flex-shrink: 0;
+  color: #f7941d;
+}
+
+.filter-pill select {
+  min-width: 0;
+  flex: 1;
+
+  border: 0;
+  outline: 0;
+  background: transparent;
+
+  appearance: none;
+  -webkit-appearance: none;
+
+  color: #464a50;
+
+  font-size: 11px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.filter-pill-chevron {
+  flex-shrink: 0;
+  pointer-events: none;
+  color: #8d9299;
 }
 
 /* =========================================
@@ -309,6 +366,10 @@
   .kpi-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
+  .filter-pill {
+    min-width: 118px;
+  }
 }
 
 @media (max-width: 900px) {
@@ -316,6 +377,16 @@
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
+  }
+
+  .filter-bar {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .filter-pill {
+    flex: 1 1 calc(25% - 6px);
+    max-width: none;
   }
 
   .dashboard-grid {
@@ -355,14 +426,9 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .topbar-filters {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .topbar select {
+  .filter-pill {
+    flex-basis: calc(50% - 4px);
     min-width: 0;
-    width: 100%;
   }
 }
 
@@ -377,14 +443,18 @@
     bottom: 0;
     left: 0;
     right: 0;
+
     width: 100%;
     min-width: 0;
     height: 62px;
+
     flex-direction: row;
     align-items: center;
     justify-content: center;
+
     border-right: none;
     border-top: 1px solid #25282e;
+
     padding: 6px;
   }
 
@@ -419,8 +489,16 @@
     padding: 10px;
   }
 
-  .topbar-filters {
+  .filter-bar {
+    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .filter-pill {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
   }
 
   .kpi-grid {
@@ -433,7 +511,7 @@
     grid-template-columns: 1fr;
   }
 
-  .topbar-filters {
+  .filter-bar {
     grid-template-columns: 1fr;
   }
 }
