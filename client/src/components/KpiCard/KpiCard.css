@@ -1,0 +1,110 @@
+.kpi-card {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+
+  background: #ffffff;
+  border: 1px solid #e3e5e8;
+  border-radius: 12px;
+
+  padding: 11px 12px 10px;
+
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.kpi-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  width: 100%;
+  height: 2px;
+
+  background: #f7941d;
+  opacity: 0.9;
+}
+
+.kpi-card:hover {
+  transform: translateY(-1px);
+  border-color: #d8dade;
+  box-shadow: 0 6px 18px rgba(27, 30, 36, 0.06);
+}
+
+.kpi-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.kpi-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 8px;
+
+  background: #fff4e7;
+  color: #e8840d;
+}
+
+.kpi-label {
+  min-width: 0;
+
+  color: #676c74;
+
+  font-size: 10px;
+  font-weight: 650;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kpi-value {
+  margin-top: 9px;
+
+  color: #202226;
+
+  font-size: clamp(21px, 1.8vw, 27px);
+  line-height: 1;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+
+  overflow-wrap: anywhere;
+}
+
+.kpi-caption {
+  margin-top: 7px;
+
+  color: #a0a4ab;
+
+  font-size: 9px;
+  line-height: 1.25;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 520px) {
+  .kpi-card {
+    padding: 10px;
+  }
+
+  .kpi-value {
+    font-size: 20px;
+  }
+
+  .kpi-caption {
+    white-space: normal;
+  }
+}
