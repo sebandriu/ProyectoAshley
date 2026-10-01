@@ -312,6 +312,7 @@ export async function getPerformanceAnalytics(filters = {}) {
       SELECT
         tienda,
         vendedor,
+        GROUPING(vendedor) AS agrupacion_vendedor,
 
         COUNT(*) FILTER (
           WHERE tipo_documento = 'OF'
@@ -366,12 +367,20 @@ export async function getPerformanceAnalytics(filters = {}) {
   };
 
   const tiendas = result.rows
-    .filter((row) => row.tienda && row.vendedor === null)
+    .filter(
+      (row) =>
+        row.tienda &&
+        Number(row.agrupacion_vendedor) === 1
+    )
     .map(mapRow)
     .sort((a, b) => b.montoVendido - a.montoVendido);
 
   const vendedores = result.rows
-    .filter((row) => row.vendedor)
+    .filter(
+      (row) =>
+        row.vendedor &&
+        Number(row.agrupacion_vendedor) === 0
+    )
     .map(mapRow)
     .sort((a, b) => b.montoVendido - a.montoVendido);
 
