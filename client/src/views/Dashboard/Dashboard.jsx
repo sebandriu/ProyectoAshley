@@ -414,6 +414,14 @@ function Dashboard() {
     ];
   }, [kpiData, kpiStatus]);
 
+  const dashboardQuery = searchParams.toString();
+  const productsLink = dashboardQuery
+    ? `/productos?${dashboardQuery}`
+    : "/productos";
+  const performanceLink = dashboardQuery
+    ? `/tiendas?${dashboardQuery}`
+    : "/tiendas";
+
   const metricTotals = {
     cotizaciones: formatInteger(kpiData?.cotizaciones?.total),
     ventas: formatInteger(kpiData?.ventas?.total),
@@ -552,7 +560,7 @@ function Dashboard() {
               </div>
             </div>
 
-            <Link className="panel-link" to="/productos">
+            <Link className="panel-link" to={productsLink}>
               Ver módulo
               <ArrowUpRight size={13} />
             </Link>
@@ -631,7 +639,7 @@ function Dashboard() {
               </div>
             </div>
 
-            <Link className="panel-link" to="/tiendas">
+            <Link className="panel-link" to={performanceLink}>
               Ver módulo
               <ArrowUpRight size={13} />
             </Link>
