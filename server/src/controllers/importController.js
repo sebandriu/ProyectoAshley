@@ -1,5 +1,6 @@
 import { pool } from "../config/database.js";
 import { readSapWorkbook } from "../services/excelService.js";
+import { processConsolidatedImport } from "../services/etlService.js";
 
 export async function importExcel(req, res) {
   if (!req.file) {
@@ -8,41 +9,131 @@ export async function importExcel(req, res) {
     });
   }
 
-  let client;
+  let parsed;
 
   try {
-    const parsed = await readSapWorkbook(req.file.buffer);
+    parsed = await readSapWorkbook(req.file.buffer);
+  } catch (error) {
+    console.error("Error al leer Excel:", error);
 
-    client = await pool.connect();
-    await client.query("BEGIN");
+    return res.status(400).json({
+      message: error.message || "No fue posible leer el archivo.",
+    });
+  }
 
-    const importResult = await client.query(
+  let rawClient;
+  let importacion;
+
+  try {
+    rawClient = await pool.connect();
+    await rawClient.query("BEGIN");
+
+    const importResult = await rawClient.query(
       `INSERT INTO importaciones
-        (nombre_archivo, tipo_informe, filas_totales, filas_validas, filas_rechazadas, estado)
+        (
+          nombre_archivo,
+          tipo_informe,
+          filas_totales,
+          filas_validas,
+          filas_rechazadas,
+          estado
+        )
        VALUES ($1, $2, $3, $3, 0, 'PROCESANDO')
        RETURNING id, fecha_importacion`,
-      [req.file.originalname, parsed.tipoInforme, parsed.rows.length]
+      [
+        req.file.originalname,
+        parsed.tipoInforme,
+        parsed.rows.length,
+      ]
     );
 
-    const importacion = importResult.rows[0];
+    importacion = importResult.rows[0];
 
     for (const row of parsed.rows) {
-      await client.query(
+      await rawClient.query(
         `INSERT INTO importacion_raw
           (importacion_id, numero_fila, datos)
          VALUES ($1, $2, $3::jsonb)`,
-        [importacion.id, row.rowNumber, JSON.stringify(row.data)]
+        [
+          importacion.id,
+          row.rowNumber,
+          JSON.stringify(row.data),
+        ]
       );
     }
 
-    await client.query(
+    await rawClient.query("COMMIT");
+  } catch (error) {
+    if (rawClient) {
+      await rawClient.query("ROLLBACK");
+    }
+
+    console.error("Error al guardar RAW:", error);
+
+    return res.status(500).json({
+      message:
+        error.message ||
+        "No fue posible guardar los datos RAW de la importación.",
+    });
+  } finally {
+    rawClient?.release();
+  }
+
+  if (parsed.tipoInforme !== "CONSOLIDADO") {
+    try {
+      await pool.query(
+        `UPDATE importaciones
+         SET estado = 'COMPLETADA',
+             observacion = NULL
+         WHERE id = $1`,
+        [importacion.id]
+      );
+
+      return res.status(201).json({
+        importacionId: importacion.id,
+        archivo: req.file.originalname,
+        hoja: parsed.worksheetName,
+        tipoInforme: parsed.tipoInforme,
+        filasProcesadas: parsed.rows.length,
+        estado: "COMPLETADA",
+        fechaImportacion: importacion.fecha_importacion,
+        origenes: parsed.originCounts,
+        columnasIgnoradas: parsed.ignoredColumns,
+      });
+    } catch (error) {
+      console.error("Error al cerrar importación:", error);
+
+      return res.status(500).json({
+        message:
+          error.message ||
+          "Los datos RAW fueron guardados, pero no fue posible cerrar la importación.",
+        importacionId: importacion.id,
+        rawPreservado: true,
+      });
+    }
+  }
+
+  let etlClient;
+
+  try {
+    etlClient = await pool.connect();
+    await etlClient.query("BEGIN");
+
+    const etl = await processConsolidatedImport(
+      etlClient,
+      importacion.id,
+      parsed.rows
+    );
+
+    await etlClient.query(
       `UPDATE importaciones
-       SET estado = 'COMPLETADA'
+       SET estado = 'COMPLETADA',
+           observacion = NULL
        WHERE id = $1`,
       [importacion.id]
     );
 
-    await client.query("COMMIT");
+    await etlClient.query("COMMIT");
 
     return res.status(201).json({
       importacionId: importacion.id,
@@ -54,18 +145,42 @@ export async function importExcel(req, res) {
       fechaImportacion: importacion.fecha_importacion,
       origenes: parsed.originCounts,
       columnasIgnoradas: parsed.ignoredColumns,
+      etl,
     });
   } catch (error) {
-    if (client) {
-      await client.query("ROLLBACK");
+    if (etlClient) {
+      await etlClient.query("ROLLBACK");
     }
 
-    console.error("Error al importar Excel:", error);
+    console.error("Error durante ETL:", error);
 
-    return res.status(400).json({
-      message: error.message || "No fue posible importar el archivo.",
+    try {
+      await pool.query(
+        `UPDATE importaciones
+         SET estado = 'ERROR',
+             observacion = $2
+         WHERE id = $1`,
+        [
+          importacion.id,
+          `ETL: ${error.message || "Error no identificado"}`,
+        ]
+      );
+    } catch (statusError) {
+      console.error(
+        "No fue posible registrar el estado ERROR:",
+        statusError
+      );
+    }
+
+    return res.status(422).json({
+      message:
+        "El archivo fue guardado en RAW, pero el ETL no pudo completarse.",
+      detalle:
+        error.message || "Error no identificado durante el ETL.",
+      importacionId: importacion.id,
+      rawPreservado: true,
     });
   } finally {
-    client?.release();
+    etlClient?.release();
   }
 }
