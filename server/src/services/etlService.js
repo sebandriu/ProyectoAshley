@@ -186,6 +186,29 @@ function parseLine(accessor, rowNumber) {
     accessor("Código", "Codigo", "ItemCode")
   );
 
+  const tipoVentaDestino =
+    toText(accessor("Tipo Venta Destino"))?.toUpperCase() ?? null;
+
+  let targetType = toInteger(
+    accessor("TargetType", "Clase de documento de destino")
+  );
+
+  const targetEntry = toInteger(
+    accessor(
+      "TargetEntry",
+      "Clave interna de documento de destino",
+      "DocEntry Destino"
+    )
+  );
+
+  if (
+    targetType === null &&
+    targetEntry !== null &&
+    ["FR", "FD"].includes(tipoVentaDestino)
+  ) {
+    targetType = 13;
+  }
+
   return {
     lineaSap,
     codigoItem,
@@ -210,16 +233,8 @@ function parseLine(accessor, rowNumber) {
     margen: toNumber(accessor("Margen")),
     tipoLinea: classifyLine(codigoItem),
 
-    targetType: toInteger(
-      accessor("TargetType", "Clase de documento de destino")
-    ),
-    targetEntry: toInteger(
-      accessor(
-        "TargetEntry",
-        "Clave interna de documento de destino",
-        "DocEntry Destino"
-      )
-    ),
+    targetType,
+    targetEntry,
 
     baseType: toInteger(
       accessor("BaseType", "Clase de documento base")
@@ -237,7 +252,7 @@ function parseLine(accessor, rowNumber) {
       )
     ),
 
-    tipoVentaDestino: toText(accessor("Tipo Venta Destino"))?.toUpperCase() ?? null,
+    tipoVentaDestino,
     numeroVentaDestino: toInteger(
       accessor("N° Venta Destino", "N Venta Destino", "Numero Venta Destino")
     ),
