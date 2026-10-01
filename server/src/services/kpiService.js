@@ -256,3 +256,41 @@ export async function getKpiSummary(filters = {}) {
     },
   };
 }
+
+
+export async function getKpiFilterOptions() {
+  const [periodResult, datesResult, storesResult] = await Promise.all([
+    pool.query(
+      `SELECT
+         TO_CHAR(MIN(fecha), 'YYYY-MM-DD') AS desde,
+         TO_CHAR(MAX(fecha), 'YYYY-MM-DD') AS hasta
+       FROM documentos`
+    ),
+    pool.query(
+      `SELECT DISTINCT TO_CHAR(fecha, 'YYYY-MM-DD') AS fecha
+       FROM documentos
+       WHERE fecha IS NOT NULL
+       ORDER BY fecha`
+    ),
+    pool.query(
+      `SELECT DISTINCT tienda
+       FROM documentos
+       WHERE tienda IS NOT NULL
+         AND BTRIM(tienda) <> ''
+       ORDER BY tienda`
+    ),
+  ]);
+
+  return {
+    periodoDisponible: {
+      desde: periodResult.rows[0]?.desde ?? null,
+      hasta: periodResult.rows[0]?.hasta ?? null,
+    },
+    fechas: datesResult.rows
+      .map((row) => row.fecha)
+      .filter(Boolean),
+    tiendas: storesResult.rows
+      .map((row) => row.tienda)
+      .filter(Boolean),
+  };
+}
