@@ -1,5 +1,7 @@
 import ExcelJS from "exceljs";
 
+const CONSOLIDATED_ORIGINS = new Set(["OF", "FR", "FD"]);
+
 function normalizeHeader(value) {
   return String(value ?? "")
     .normalize("NFD")
@@ -36,17 +38,41 @@ function normalizeCellValue(value) {
   return value;
 }
 
-function detectReportType(headers) {
-  const normalized = new Set(headers.map(normalizeHeader));
+function shouldIgnoreHeader(header) {
+  const normalized = normalizeHeader(header);
+  return !normalized || normalized === "#";
+}
 
-  const has = (...names) =>
-    names.some((name) => normalized.has(normalizeHeader(name)));
+function findHeader(headers, ...aliases) {
+  const normalizedAliases = new Set(aliases.map(normalizeHeader));
+
+  return headers.find(
+    (header) =>
+      !shouldIgnoreHeader(header) &&
+      normalizedAliases.has(normalizeHeader(header))
+  );
+}
+
+function detectReportType(headers) {
+  const has = (...aliases) => Boolean(findHeader(headers, ...aliases));
+
+  const isConsolidated =
+    has("OrigenMicapp") &&
+    has("Número interno", "Numero interno", "DocEntry") &&
+    has("N° Documento", "N Documento", "Numero Documento") &&
+    has("Fecha") &&
+    has("Código", "Codigo", "ItemCode") &&
+    has("Cantidad");
+
+  if (isConsolidated) return "CONSOLIDADO";
 
   const isOffer =
     has("N° Oferta", "N Oferta") &&
     has("Fecha") &&
     has("Código", "Codigo") &&
     has("Cantidad");
+
+  if (isOffer) return "OF";
 
   const isSales =
     has("TipoDoc") &&
@@ -55,10 +81,23 @@ function detectReportType(headers) {
     has("ItemCode") &&
     has("Cantidad");
 
-  if (isOffer) return "OF";
   if (isSales) return "VENTAS";
 
   return null;
+}
+
+function normalizeValueForHeader(header, value) {
+  const normalizedHeader = normalizeHeader(header);
+  const normalizedValue = normalizeCellValue(value);
+
+  if (
+    normalizedValue !== null &&
+    ["codigo", "itemcode"].includes(normalizedHeader)
+  ) {
+    return String(normalizedValue);
+  }
+
+  return normalizedValue;
 }
 
 export async function readSapWorkbook(buffer) {
@@ -79,7 +118,9 @@ export async function readSapWorkbook(buffer) {
     headers.push(String(rawHeader ?? "").trim());
   }
 
-  if (!headers.some(Boolean)) {
+  const usableHeaders = headers.filter((header) => !shouldIgnoreHeader(header));
+
+  if (usableHeaders.length === 0) {
     throw new Error("No fue posible identificar los encabezados del archivo.");
   }
 
@@ -87,9 +128,18 @@ export async function readSapWorkbook(buffer) {
 
   if (!tipoInforme) {
     throw new Error(
-      "El archivo no coincide con los formatos de OF o VENTAS esperados por Micapp."
+      "El archivo no coincide con los formatos reconocidos por Micapp."
     );
   }
+
+  const originHeader =
+    tipoInforme === "CONSOLIDADO" ? findHeader(headers, "OrigenMicapp") : null;
+
+  const originCounts = {
+    OF: 0,
+    FR: 0,
+    FD: 0,
+  };
 
   const rows = [];
 
@@ -99,9 +149,12 @@ export async function readSapWorkbook(buffer) {
     let hasData = false;
 
     headers.forEach((header, index) => {
-      if (!header) return;
+      if (shouldIgnoreHeader(header)) return;
 
-      const value = normalizeCellValue(row.getCell(index + 1).value);
+      const value = normalizeValueForHeader(
+        header,
+        row.getCell(index + 1).value
+      );
 
       if (value !== null && value !== "") {
         hasData = true;
@@ -110,12 +163,27 @@ export async function readSapWorkbook(buffer) {
       data[header] = value;
     });
 
-    if (hasData) {
-      rows.push({
-        rowNumber,
-        data,
-      });
+    if (!hasData) continue;
+
+    if (tipoInforme === "CONSOLIDADO") {
+      const origin = String(data[originHeader] ?? "")
+        .trim()
+        .toUpperCase();
+
+      if (!CONSOLIDATED_ORIGINS.has(origin)) {
+        throw new Error(
+          `La fila ${rowNumber} tiene un OrigenMicapp inválido: "${origin || "(vacío)"}".`
+        );
+      }
+
+      data[originHeader] = origin;
+      originCounts[origin] += 1;
     }
+
+    rows.push({
+      rowNumber,
+      data,
+    });
   }
 
   if (rows.length === 0) {
@@ -124,8 +192,10 @@ export async function readSapWorkbook(buffer) {
 
   return {
     tipoInforme,
-    headers,
+    headers: usableHeaders,
     rows,
     worksheetName: worksheet.name,
+    originCounts,
+    ignoredColumns: headers.filter(shouldIgnoreHeader).length,
   };
 }
