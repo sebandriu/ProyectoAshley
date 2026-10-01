@@ -14,7 +14,11 @@ import {
 } from "lucide-react";
 
 import KpiCard from "../../components/KpiCard/KpiCard";
-import { getKpiSummary, getSystemHealth } from "../../services/api";
+import {
+  getKpiEvolution,
+  getKpiSummary,
+  getSystemHealth,
+} from "../../services/api";
 
 const integerFormatter = new Intl.NumberFormat("es-CL", {
   maximumFractionDigits: 0,
@@ -57,12 +61,171 @@ function formatApiDate(value) {
   return `${day}/${month}/${year}`;
 }
 
+const evolutionMetrics = {
+  cotizaciones: {
+    label: "Cotizaciones",
+    formatter: formatInteger,
+  },
+  ventas: {
+    label: "Ventas",
+    formatter: formatInteger,
+  },
+  conversion: {
+    label: "Conversión",
+    formatter: formatPercent,
+  },
+};
+
+function EvolutionChart({ points, metric }) {
+  if (!points?.length) {
+    return (
+      <div className="evolution-empty">
+        <BarChart3 size={22} strokeWidth={1.7} />
+        <strong>Sin datos para los filtros seleccionados</strong>
+        <span>Prueba otro período o una tienda diferente.</span>
+      </div>
+    );
+  }
+
+  const width = 760;
+  const height = 260;
+  const padding = {
+    top: 24,
+    right: 20,
+    bottom: 52,
+    left: 50,
+  };
+
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  const values = points.map((point) => {
+    const value = point[metric];
+    return value === null || value === undefined ? null : Number(value);
+  });
+
+  const maxValue =
+    metric === "conversion"
+      ? 100
+      : Math.max(1, ...values.map((value) => value ?? 0));
+
+  const slotWidth = chartWidth / points.length;
+  const barWidth = Math.min(56, Math.max(8, slotWidth * 0.48));
+  const labelEvery = Math.max(1, Math.ceil(points.length / 8));
+  const metricConfig = evolutionMetrics[metric];
+
+  function getY(value) {
+    return (
+      padding.top +
+      chartHeight -
+      ((value ?? 0) / maxValue) * chartHeight
+    );
+  }
+
+  return (
+    <div className="evolution-chart">
+      <svg
+        className="evolution-svg"
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={`Evolución de ${metricConfig.label.toLowerCase()}`}
+      >
+        {Array.from({ length: 5 }).map((_, index) => {
+          const ratio = index / 4;
+          const y = padding.top + chartHeight * ratio;
+          const axisValue = maxValue * (1 - ratio);
+
+          return (
+            <g key={`grid-${index}`}>
+              <line
+                className="evolution-grid-line"
+                x1={padding.left}
+                y1={y}
+                x2={width - padding.right}
+                y2={y}
+              />
+              <text
+                className="evolution-axis-label"
+                x={padding.left - 9}
+                y={y + 3}
+                textAnchor="end"
+              >
+                {metric === "conversion"
+                  ? `${Math.round(axisValue)}%`
+                  : formatInteger(Math.round(axisValue))}
+              </text>
+            </g>
+          );
+        })}
+
+        {points.map((point, index) => {
+          const rawValue = values[index];
+          const value = rawValue ?? 0;
+          const x =
+            padding.left +
+            index * slotWidth +
+            (slotWidth - barWidth) / 2;
+          const y = getY(value);
+          const barHeight =
+            padding.top + chartHeight - y;
+          const showDate =
+            index % labelEvery === 0 ||
+            index === points.length - 1;
+
+          return (
+            <g key={`${point.fecha}-${metric}`}>
+              <rect
+                className="evolution-bar"
+                x={x}
+                y={y}
+                width={barWidth}
+                height={Math.max(barHeight, value > 0 ? 2 : 0)}
+                rx="5"
+              >
+                <title>
+                  {`${formatApiDate(point.fecha)} · ${metricConfig.label}: ${metricConfig.formatter(rawValue)}`}
+                </title>
+              </rect>
+
+              {points.length <= 10 && (
+                <text
+                  className="evolution-value-label"
+                  x={x + barWidth / 2}
+                  y={Math.max(14, y - 7)}
+                  textAnchor="middle"
+                >
+                  {metricConfig.formatter(rawValue)}
+                </text>
+              )}
+
+              {showDate && (
+                <text
+                  className="evolution-date-label"
+                  x={x + barWidth / 2}
+                  y={height - 21}
+                  textAnchor="middle"
+                >
+                  {formatApiDate(point.fecha)}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 function Dashboard() {
   const [searchParams] = useSearchParams();
   const [systemStatus, setSystemStatus] = useState("checking");
   const [kpiStatus, setKpiStatus] = useState("loading");
   const [kpiData, setKpiData] = useState(null);
   const [kpiError, setKpiError] = useState("");
+
+  const [evolutionStatus, setEvolutionStatus] = useState("loading");
+  const [evolutionData, setEvolutionData] = useState([]);
+  const [evolutionError, setEvolutionError] = useState("");
+  const [evolutionMetric, setEvolutionMetric] = useState("cotizaciones");
 
   const selectedDate = searchParams.get("fecha") ?? "";
   const selectedStore = searchParams.get("tienda") ?? "";
@@ -105,6 +268,36 @@ function Dashboard() {
 
         setKpiError(error.message);
         setKpiStatus("error");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedDate, selectedStore]);
+
+  useEffect(() => {
+    let active = true;
+
+    setEvolutionStatus("loading");
+    setEvolutionError("");
+
+    getKpiEvolution({
+      desde: selectedDate || undefined,
+      hasta: selectedDate || undefined,
+      tienda: selectedStore || undefined,
+    })
+      .then((data) => {
+        if (!active) return;
+
+        setEvolutionData(data.puntos ?? []);
+        setEvolutionStatus("success");
+      })
+      .catch((error) => {
+        if (!active) return;
+
+        setEvolutionData([]);
+        setEvolutionError(error.message);
+        setEvolutionStatus("error");
       });
 
     return () => {
@@ -176,6 +369,12 @@ function Dashboard() {
     ];
   }, [kpiData, kpiStatus]);
 
+  const metricTotals = {
+    cotizaciones: formatInteger(kpiData?.cotizaciones?.total),
+    ventas: formatInteger(kpiData?.ventas?.total),
+    conversion: formatPercent(kpiData?.conversion?.resueltasPct),
+  };
+
   return (
     <div className="page dashboard-page">
       <section className="kpi-grid" aria-label="Indicadores principales">
@@ -199,40 +398,49 @@ function Dashboard() {
             </div>
 
             <div className="metric-tags" aria-label="Métricas disponibles">
-              <span className="metric-tag active">
-                Cotizaciones {formatInteger(kpiData?.cotizaciones?.total)}
-              </span>
-              <span className="metric-tag">
-                Ventas {formatInteger(kpiData?.ventas?.total)}
-              </span>
-              <span className="metric-tag">
-                Conversión {formatPercent(kpiData?.conversion?.resueltasPct)}
-              </span>
+              {Object.entries(evolutionMetrics).map(([key, config]) => (
+                <button
+                  type="button"
+                  className={`metric-tag ${evolutionMetric === key ? "active" : ""}`}
+                  key={key}
+                  onClick={() => setEvolutionMetric(key)}
+                >
+                  {config.label} {metricTotals[key]}
+                </button>
+              ))}
             </div>
           </header>
 
-          <div className="visual-placeholder">
-            <div className="visual-placeholder-content">
-              <div className="visual-placeholder-icon">
+          <div className="evolution-visual">
+            {evolutionStatus === "success" ? (
+              <EvolutionChart
+                points={evolutionData}
+                metric={evolutionMetric}
+              />
+            ) : (
+              <div className="evolution-empty">
                 <BarChart3 size={22} strokeWidth={1.7} />
+                <strong>
+                  {evolutionStatus === "error"
+                    ? "No fue posible cargar la evolución"
+                    : "Cargando evolución comercial"}
+                </strong>
+                <span>
+                  {evolutionStatus === "error"
+                    ? evolutionError
+                    : "Micapp está consultando la serie temporal en PostgreSQL."}
+                </span>
               </div>
+            )}
+          </div>
 
-              <strong>
-                {kpiStatus === "success"
-                  ? "Datos comerciales procesados"
-                  : kpiStatus === "error"
-                    ? "No fue posible cargar los indicadores"
-                    : "Cargando información comercial"}
-              </strong>
-
-              <span>
-                {kpiStatus === "success"
-                  ? `Período analizado: ${periodLabel ?? "sin registros para los filtros seleccionados"}. Hay ${formatInteger(kpiData?.cotizaciones?.convertidasCompletas)} OF convertidas completas, ${formatInteger(kpiData?.cotizaciones?.conversionesParciales)} parciales y ${formatInteger(kpiData?.cotizaciones?.pendientes)} pendientes. El gráfico temporal se incorporará en el siguiente incremento.`
-                  : kpiStatus === "error"
-                    ? kpiError
-                    : "Micapp está consultando los datos procesados en PostgreSQL."}
-              </span>
-            </div>
+          <div className="evolution-footnote">
+            <span>
+              Período analizado: {periodLabel ?? "sin registros"}
+            </span>
+            <span>
+              {selectedStore ? `Tienda: ${selectedStore}` : "Todas las tiendas"}
+            </span>
           </div>
         </article>
 
