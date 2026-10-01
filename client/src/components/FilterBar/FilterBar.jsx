@@ -10,22 +10,29 @@ const filters = {
   periodo: {
     label: "Período",
     icon: CalendarDays,
-    options: ["Últimos 30 días", "Últimos 90 días", "Año actual"],
+    options: [
+      { value: "30", label: "Últimos 30 días" },
+      { value: "90", label: "Últimos 90 días" },
+      { value: "year", label: "Año actual" },
+    ],
   },
   tienda: {
     label: "Tienda",
     icon: Store,
-    options: ["Antofagasta", "Todas"],
+    options: [
+      { value: "Antofagasta", label: "Antofagasta" },
+      { value: "Todas", label: "Todas" },
+    ],
   },
   vendedor: {
     label: "Vendedor",
     icon: UserRound,
-    options: ["Todos"],
+    options: [{ value: "Todos", label: "Todos" }],
   },
   producto: {
     label: "Producto",
     icon: Sofa,
-    options: ["Todos"],
+    options: [{ value: "Todos", label: "Todos" }],
   },
 };
 
@@ -36,37 +43,62 @@ const defaultFilterKeys = [
   "producto",
 ];
 
-function FilterBar({ visibleFilters = defaultFilterKeys }) {
+function FilterBar({
+  visibleFilters = defaultFilterKeys,
+  options = {},
+  values = {},
+  onChange,
+  loading = false,
+}) {
   const activeFilters = visibleFilters
-    .map((key) => filters[key])
-    .filter(Boolean);
+    .map((key) => ({
+      key,
+      ...filters[key],
+      options: options[key] ?? filters[key]?.options ?? [],
+    }))
+    .filter((filter) => filter.label);
 
   return (
     <div className="filter-bar" aria-label="Filtros comerciales">
-      {activeFilters.map(({ label, icon: Icon, options }) => (
-        <label className="filter-pill" key={label}>
-          <Icon className="filter-pill-icon" size={15} strokeWidth={1.9} />
+      {activeFilters.map(
+        ({ key, label, icon: Icon, options: filterOptions }) => (
+          <label className="filter-pill" key={key}>
+            <Icon
+              className="filter-pill-icon"
+              size={15}
+              strokeWidth={1.9}
+            />
 
-          <select defaultValue="" aria-label={label}>
-            <option value="" disabled>
-              {label}
-            </option>
+            <select
+              value={values[key] ?? ""}
+              aria-label={label}
+              disabled={loading}
+              onChange={(event) => {
+                onChange?.(key, event.target.value);
+              }}
+            >
+              {filterOptions.length === 0 && (
+                <option value="">
+                  {loading ? "Cargando..." : label}
+                </option>
+              )}
 
-            {options.map((option) => (
-              <option value={option} key={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+              {filterOptions.map((option) => (
+                <option value={option.value} key={`${key}-${option.value}`}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
 
-          <ChevronDown
-            className="filter-pill-chevron"
-            size={14}
-            strokeWidth={1.8}
-            aria-hidden="true"
-          />
-        </label>
-      ))}
+            <ChevronDown
+              className="filter-pill-chevron"
+              size={14}
+              strokeWidth={1.8}
+              aria-hidden="true"
+            />
+          </label>
+        )
+      )}
     </div>
   );
 }
