@@ -47,7 +47,9 @@ function Importacion() {
         <div className="upload-area">
           <strong>Seleccionar archivo Excel</strong>
 
-          <span>Archivos .xlsx exportados desde SAP Business One</span>
+          <span>
+            Archivo .xlsx generado desde la consulta consolidada de Micapp
+          </span>
 
           <input
             ref={inputRef}
@@ -88,6 +90,15 @@ function Importacion() {
               <strong>Importación completada</strong>
               <p>Tipo detectado: {result.tipoInforme}</p>
               <p>Filas procesadas: {result.filasProcesadas}</p>
+
+              {result.tipoInforme === "CONSOLIDADO" && (
+                <>
+                  <p>OF: {result.origenes?.OF ?? 0}</p>
+                  <p>FR: {result.origenes?.FR ?? 0}</p>
+                  <p>FD: {result.origenes?.FD ?? 0}</p>
+                </>
+              )}
+
               <p>Hoja: {result.hoja}</p>
               <p>ID de importación: {result.importacionId}</p>
             </div>
