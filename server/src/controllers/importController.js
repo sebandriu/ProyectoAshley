@@ -52,6 +52,8 @@ export async function importExcel(req, res) {
       filasProcesadas: parsed.rows.length,
       estado: "COMPLETADA",
       fechaImportacion: importacion.fecha_importacion,
+      origenes: parsed.originCounts,
+      columnasIgnoradas: parsed.ignoredColumns,
     });
   } catch (error) {
     if (client) {
