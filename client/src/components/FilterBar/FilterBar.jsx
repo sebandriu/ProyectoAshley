@@ -67,43 +67,63 @@ function FilterBar({
       aria-busy={loading}
     >
       {activeFilters.map(
-        ({ key, label, icon: Icon, options: filterOptions }) => (
-          <label className="filter-pill" key={key}>
-            <Icon
-              className="filter-pill-icon"
-              size={15}
-              strokeWidth={1.9}
-            />
+        ({ key, label, icon: Icon, options: filterOptions }) => {
+          const currentValue = values[key] ?? "";
+          const selectedOption = filterOptions.find(
+            (option) => String(option.value) === String(currentValue)
+          );
 
-            <select
-              value={values[key] ?? ""}
-              aria-label={label}
-              disabled={loading}
-              onChange={(event) => {
-                onChange?.(key, event.target.value);
-              }}
-            >
-              {filterOptions.length === 0 && (
-                <option value="">
-                  {loading ? "Cargando..." : label}
-                </option>
-              )}
+          const visibleLabel =
+            selectedOption?.label ??
+            (loading ? "Cargando..." : label);
 
-              {filterOptions.map((option) => (
-                <option value={option.value} key={`${key}-${option.value}`}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+          return (
+            <label className="filter-pill" key={key}>
+              <Icon
+                className="filter-pill-icon"
+                size={15}
+                strokeWidth={1.9}
+                aria-hidden="true"
+              />
 
-            <ChevronDown
-              className="filter-pill-chevron"
-              size={14}
-              strokeWidth={1.8}
-              aria-hidden="true"
-            />
-          </label>
-        )
+              <span className="filter-pill-value">
+                {visibleLabel}
+              </span>
+
+              <ChevronDown
+                className="filter-pill-chevron"
+                size={14}
+                strokeWidth={1.8}
+                aria-hidden="true"
+              />
+
+              <select
+                className="filter-pill-select"
+                value={currentValue}
+                aria-label={label}
+                disabled={loading}
+                onChange={(event) => {
+                  onChange?.(key, event.target.value);
+                }}
+              >
+                {filterOptions.length === 0 && (
+                  <option value="">
+                    {loading ? "Cargando..." : label}
+                  </option>
+                )}
+
+                {filterOptions.map((option) => (
+                  <option
+                    value={option.value}
+                    key={`${key}-${option.value}`}
+                  >
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          );
+        }
       )}
     </div>
   );
