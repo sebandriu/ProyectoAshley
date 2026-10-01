@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   FileText,
   BadgeDollarSign,
@@ -58,10 +58,14 @@ function formatApiDate(value) {
 }
 
 function Dashboard() {
+  const [searchParams] = useSearchParams();
   const [systemStatus, setSystemStatus] = useState("checking");
   const [kpiStatus, setKpiStatus] = useState("loading");
   const [kpiData, setKpiData] = useState(null);
   const [kpiError, setKpiError] = useState("");
+
+  const selectedDate = searchParams.get("fecha") ?? "";
+  const selectedStore = searchParams.get("tienda") ?? "";
 
   useEffect(() => {
     let active = true;
@@ -74,7 +78,22 @@ function Dashboard() {
         if (active) setSystemStatus("offline");
       });
 
-    getKpiSummary()
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    setKpiStatus("loading");
+    setKpiError("");
+
+    getKpiSummary({
+      desde: selectedDate || undefined,
+      hasta: selectedDate || undefined,
+      tienda: selectedStore || undefined,
+    })
       .then((data) => {
         if (!active) return;
 
@@ -91,7 +110,7 @@ function Dashboard() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [selectedDate, selectedStore]);
 
   const databaseOnline = systemStatus === "online";
 
@@ -208,7 +227,7 @@ function Dashboard() {
 
               <span>
                 {kpiStatus === "success"
-                  ? `Período disponible: ${periodLabel ?? "sin fecha disponible"}. Hay ${formatInteger(kpiData?.cotizaciones?.convertidasCompletas)} OF convertidas completas, ${formatInteger(kpiData?.cotizaciones?.conversionesParciales)} parciales y ${formatInteger(kpiData?.cotizaciones?.pendientes)} pendientes. El gráfico temporal se incorporará en el siguiente incremento.`
+                  ? `Período analizado: ${periodLabel ?? "sin registros para los filtros seleccionados"}. Hay ${formatInteger(kpiData?.cotizaciones?.convertidasCompletas)} OF convertidas completas, ${formatInteger(kpiData?.cotizaciones?.conversionesParciales)} parciales y ${formatInteger(kpiData?.cotizaciones?.pendientes)} pendientes. El gráfico temporal se incorporará en el siguiente incremento.`
                   : kpiStatus === "error"
                     ? kpiError
                     : "Micapp está consultando los datos procesados en PostgreSQL."}
@@ -254,7 +273,7 @@ function Dashboard() {
                 {!databaseOnline
                   ? "Inicia el backend y PostgreSQL para habilitar la capa de datos de Micapp."
                   : kpiStatus === "success"
-                    ? `Micapp está trabajando con información procesada del ${periodLabel ?? "período disponible"}. Se registran ${formatInteger(kpiData?.ventas?.total)} documentos de venta válidos y ${formatInteger(kpiData?.cotizaciones?.total)} cotizaciones.`
+                    ? `Micapp está trabajando con información procesada del ${periodLabel ?? "período seleccionado"}. Se registran ${formatInteger(kpiData?.ventas?.total)} documentos de venta válidos y ${formatInteger(kpiData?.cotizaciones?.total)} cotizaciones${selectedStore ? ` para ${selectedStore}` : ""}.`
                     : kpiStatus === "error"
                       ? `La base de datos está conectada, pero los KPI no pudieron cargarse: ${kpiError}`
                       : "Micapp está conectado al backend y consultando los indicadores comerciales."}
