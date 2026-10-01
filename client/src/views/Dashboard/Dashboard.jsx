@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";\nimport { Link } from "react-router-dom";
 import {
   FileText,
   BadgeDollarSign,
@@ -12,7 +12,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 
-import KpiCard from "../../components/KpiCard/KpiCard";
+import KpiCard from "../../components/KpiCard/KpiCard";\nimport { getSystemHealth } from "../../services/api";
 
 const kpis = [
   {
@@ -92,9 +92,15 @@ function Dashboard() {
               <h2>Información del sistema</h2>
             </div>
 
-            <span className="status-badge">
+            <span
+              className={`status-badge ${databaseOnline ? "online" : ""}`}
+            >
               <span className="status-dot" />
-              Sin datos
+              {systemStatus === "checking"
+                ? "Comprobando"
+                : databaseOnline
+                  ? "BD conectada"
+                  : "Sin conexión"}
             </span>
           </header>
 
@@ -104,10 +110,15 @@ function Dashboard() {
             </div>
 
             <div>
-              <h3>Aún no hay información cargada</h3>
+              <h3>
+                {databaseOnline
+                  ? "PostgreSQL está disponible"
+                  : "Aún no hay información cargada"}
+              </h3>
               <p>
-                Los indicadores se habilitarán al incorporar archivos exportados
-                desde SAP Business One.
+                {databaseOnline
+                  ? "Micapp ya puede comunicarse con el backend y la base de datos. El siguiente incremento incorporará la importación y el ETL de archivos SAP."
+                  : "Inicia el backend y PostgreSQL para habilitar la capa de datos de Micapp."}
               </p>
             </div>
           </div>

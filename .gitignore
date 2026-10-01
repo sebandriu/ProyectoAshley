@@ -1,0 +1,14 @@
+**/node_modules/
+**/dist/
+**/.env
+!**/.env.example
+
+*.xlsx
+*.xls
+*.csv
+
+release/
+*.exe
+
+.DS_Store
+Thumbs.db

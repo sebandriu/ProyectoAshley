@@ -1,0 +1,30 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: micapp-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-micapp}
+      POSTGRES_USER: ${POSTGRES_USER:-micapp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-micapp_dev}
+
+    ports:
+      - "127.0.0.1:5432:5432"
+
+    volumes:
+      - micapp_postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-micapp} -d ${POSTGRES_DB:-micapp}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  micapp_postgres_data:

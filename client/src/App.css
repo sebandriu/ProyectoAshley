@@ -445,6 +445,16 @@
   background: #b8bcc2;
 }
 
+.status-badge.online {
+  color: #35724a;
+  border-color: #cfe5d6;
+  background: #f2faf4;
+}
+
+.status-badge.online .status-dot {
+  background: #4b9b66;
+}
+
 .data-status-content {
   flex: 1;
 
