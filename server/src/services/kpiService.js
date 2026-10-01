@@ -294,3 +294,75 @@ export async function getKpiFilterOptions() {
       .filter(Boolean),
   };
 }
+
+
+export async function getKpiEvolution(filters = {}) {
+  const { where, values, applied } = buildDocumentFilters(filters);
+
+  const result = await pool.query(
+    `
+      WITH base AS (
+        SELECT
+          d.tipo_documento,
+          d.fecha,
+          d.estado_analitico,
+          d.cancelada_sap,
+          d.tienda,
+          d.vendedor
+        FROM documentos d
+        ${where}
+      )
+      SELECT
+        TO_CHAR(fecha, 'YYYY-MM-DD') AS fecha,
+
+        COUNT(*) FILTER (
+          WHERE tipo_documento = 'OF'
+        ) AS cotizaciones,
+
+        COUNT(*) FILTER (
+          WHERE tipo_documento IN ('FR', 'FD')
+            AND COALESCE(cancelada_sap, 'N') = 'N'
+        ) AS ventas,
+
+        COUNT(*) FILTER (
+          WHERE tipo_documento = 'OF'
+            AND estado_analitico = 'CONVERTIDA COMPLETA'
+        ) AS convertidas_completas,
+
+        COUNT(*) FILTER (
+          WHERE tipo_documento = 'OF'
+            AND estado_analitico = 'CONVERSION PARCIAL'
+        ) AS conversiones_parciales,
+
+        COUNT(*) FILTER (
+          WHERE tipo_documento = 'OF'
+            AND estado_analitico = 'CERRADA SIN VENTA'
+        ) AS cerradas_sin_venta
+
+      FROM base
+      WHERE fecha IS NOT NULL
+      GROUP BY fecha
+      ORDER BY fecha
+    `,
+    values
+  );
+
+  return {
+    filtros: applied,
+    puntos: result.rows.map((row) => {
+      const completas = integer(row.convertidas_completas);
+      const parciales = integer(row.conversiones_parciales);
+      const cerradasSinVenta = integer(row.cerradas_sin_venta);
+
+      const conVenta = completas + parciales;
+      const resueltas = conVenta + cerradasSinVenta;
+
+      return {
+        fecha: row.fecha,
+        cotizaciones: integer(row.cotizaciones),
+        ventas: integer(row.ventas),
+        conversion: percentage(conVenta, resueltas),
+      };
+    }),
+  };
+}
