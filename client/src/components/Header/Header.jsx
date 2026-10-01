@@ -1,6 +1,11 @@
+import { useLocation } from "react-router-dom";
+
 import FilterBar from "../FilterBar/FilterBar";
 
 function Header() {
+  const location = useLocation();
+  const isDashboard = location.pathname === "/";
+
   return (
     <header className="topbar">
       <div className="topbar-heading">
@@ -8,7 +13,13 @@ function Header() {
         <p>Version 1.0 - Prueba</p>
       </div>
 
-      <FilterBar />
+      <FilterBar
+        visibleFilters={
+          isDashboard
+            ? ["periodo", "tienda"]
+            : ["periodo", "tienda", "vendedor", "producto"]
+        }
+      />
     </header>
   );
 }
