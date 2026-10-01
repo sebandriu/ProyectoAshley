@@ -58,8 +58,14 @@ function FilterBar({
     }))
     .filter((filter) => filter.label);
 
+  if (activeFilters.length === 0) return null;
+
   return (
-    <div className="filter-bar" aria-label="Filtros comerciales">
+    <div
+      className="filter-bar"
+      aria-label="Filtros comerciales"
+      aria-busy={loading}
+    >
       {activeFilters.map(
         ({ key, label, icon: Icon, options: filterOptions }) => (
           <label className="filter-pill" key={key}>
