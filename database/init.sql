@@ -34,7 +34,8 @@ CREATE TABLE IF NOT EXISTS documentos (
     fecha DATE NOT NULL,
 
     estado_sap VARCHAR(10),
-    cancelada BOOLEAN NOT NULL DEFAULT FALSE,
+    cancelada_sap VARCHAR(1)
+        CHECK (cancelada_sap IS NULL OR cancelada_sap IN ('N', 'Y', 'C')),
     estado_analitico VARCHAR(30),
 
     tienda VARCHAR(120),
@@ -64,14 +65,27 @@ CREATE TABLE IF NOT EXISTS detalle_documento (
     cantidad_abierta NUMERIC(18, 4),
 
     precio_unitario NUMERIC(18, 2),
+    precio_sin_iva NUMERIC(18, 2),
     descuento_pct NUMERIC(10, 4),
+
     total_linea NUMERIC(18, 2),
+    total_neto NUMERIC(18, 2),
+    total_bruto NUMERIC(18, 2),
+
+    costo_unitario NUMERIC(18, 2),
+    costo_total NUMERIC(18, 2),
+    contribucion NUMERIC(18, 2),
+    margen NUMERIC(10, 2),
 
     tipo_linea VARCHAR(20)
         CHECK (tipo_linea IS NULL OR tipo_linea IN ('PRODUCTO', 'SERVICIO')),
 
     target_type INTEGER,
     target_entry BIGINT,
+
+    base_type INTEGER,
+    base_entry BIGINT,
+    base_line INTEGER,
 
     UNIQUE (documento_id, linea_sap)
 );
@@ -114,6 +128,9 @@ CREATE INDEX IF NOT EXISTS idx_documentos_estado_analitico
 
 CREATE INDEX IF NOT EXISTS idx_detalle_codigo_item
     ON detalle_documento(codigo_item);
+
+CREATE INDEX IF NOT EXISTS idx_detalle_base
+    ON detalle_documento(base_type, base_entry, base_line);
 
 CREATE INDEX IF NOT EXISTS idx_relaciones_target
     ON relaciones_documento(target_type, target_docentry_sap);
