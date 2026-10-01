@@ -36,6 +36,19 @@ export async function getKpiSummary(filters = {}) {
   return data;
 }
 
+export async function getKpiFilters() {
+  const response = await fetch(`${API_URL}/kpis/filtros`);
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data.message || "No fue posible obtener los filtros disponibles."
+    );
+  }
+
+  return data;
+}
+
 export async function importSapFile(file) {
   const formData = new FormData();
   formData.append("archivo", file);
