@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 
 import FilterBar from "../FilterBar/FilterBar";
-import { getKpiFilters } from "../../services/api";
+import { getAnalyticsFilters } from "../../services/api";
 
 function formatDateLabel(value) {
   if (!value) return null;
@@ -15,62 +15,59 @@ function formatDateLabel(value) {
   return `${day}/${month}/${year}`;
 }
 
+function filtersForPath(pathname) {
+  if (pathname === "/") return ["periodo", "tienda"];
+  if (pathname === "/productos") return ["periodo", "tienda", "producto"];
+  if (pathname === "/tiendas") return ["periodo", "tienda", "vendedor"];
+  if (pathname === "/cotizaciones" || pathname === "/ventas") {
+    return ["periodo", "tienda", "vendedor", "producto"];
+  }
+
+  return [];
+}
+
 function Header() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const isDashboard = location.pathname === "/";
+  const [filterData, setFilterData] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const [dashboardFilters, setDashboardFilters] = useState(null);
-  const [dashboardFiltersLoading, setDashboardFiltersLoading] =
-    useState(false);
-
-  const [localValues, setLocalValues] = useState({
-    periodo: "",
-    tienda: "",
-    vendedor: "",
-    producto: "",
-  });
+  const visibleFilters = filtersForPath(location.pathname);
 
   useEffect(() => {
-    if (!isDashboard) return undefined;
+    if (visibleFilters.length === 0) return undefined;
 
     let active = true;
-    setDashboardFiltersLoading(true);
+    setLoading(true);
 
-    getKpiFilters()
+    getAnalyticsFilters()
       .then((data) => {
-        if (active) {
-          setDashboardFilters(data);
-        }
+        if (active) setFilterData(data);
       })
       .catch((error) => {
-        console.error("No fue posible cargar filtros del Dashboard:", error);
+        console.error("No fue posible cargar filtros analíticos:", error);
       })
       .finally(() => {
-        if (active) {
-          setDashboardFiltersLoading(false);
-        }
+        if (active) setLoading(false);
       });
 
     return () => {
       active = false;
     };
-  }, [isDashboard]);
+  }, [location.pathname]);
 
-  const dashboardOptions = useMemo(() => {
-    if (!dashboardFilters) {
+  const options = useMemo(() => {
+    if (!filterData) {
       return {
         periodo: [],
         tienda: [],
+        vendedor: [],
+        producto: [],
       };
     }
 
-    const from = formatDateLabel(
-      dashboardFilters.periodoDisponible?.desde
-    );
-    const to = formatDateLabel(
-      dashboardFilters.periodoDisponible?.hasta
-    );
+    const from = formatDateLabel(filterData.periodoDisponible?.desde);
+    const to = formatDateLabel(filterData.periodoDisponible?.hasta);
 
     const rangeLabel =
       from && to
@@ -81,60 +78,57 @@ function Header() {
 
     return {
       periodo: [
-        {
-          value: "",
-          label: rangeLabel,
-        },
-        ...(dashboardFilters.fechas ?? []).map((date) => ({
+        { value: "", label: rangeLabel },
+        ...(filterData.fechas ?? []).map((date) => ({
           value: date,
           label: formatDateLabel(date),
         })),
       ],
       tienda: [
-        {
-          value: "",
-          label: "Todas",
-        },
-        ...(dashboardFilters.tiendas ?? []).map((store) => ({
+        { value: "", label: "Todas las tiendas" },
+        ...(filterData.tiendas ?? []).map((store) => ({
           value: store,
           label: store,
         })),
       ],
+      vendedor: [
+        { value: "", label: "Todos los vendedores" },
+        ...(filterData.vendedores ?? []).map((seller) => ({
+          value: seller,
+          label: seller,
+        })),
+      ],
+      producto: [
+        { value: "", label: "Todos los productos" },
+        ...(filterData.productos ?? []).map((product) => ({
+          value: product.codigo,
+          label:
+            product.descripcion && product.descripcion !== product.codigo
+              ? `${product.codigo} · ${product.descripcion}`
+              : product.codigo,
+        })),
+      ],
     };
-  }, [dashboardFilters]);
+  }, [filterData]);
 
-  const dashboardValues = {
+  const values = {
     periodo: searchParams.get("fecha") ?? "",
     tienda: searchParams.get("tienda") ?? "",
+    vendedor: searchParams.get("vendedor") ?? "",
+    producto: searchParams.get("producto") ?? "",
   };
 
-  function handleDashboardChange(key, value) {
+  function handleChange(key, value) {
     const nextParams = new URLSearchParams(searchParams);
+    const paramName = key === "periodo" ? "fecha" : key;
 
-    if (key === "periodo") {
-      if (value) {
-        nextParams.set("fecha", value);
-      } else {
-        nextParams.delete("fecha");
-      }
-    }
-
-    if (key === "tienda") {
-      if (value) {
-        nextParams.set("tienda", value);
-      } else {
-        nextParams.delete("tienda");
-      }
+    if (value) {
+      nextParams.set(paramName, value);
+    } else {
+      nextParams.delete(paramName);
     }
 
     setSearchParams(nextParams);
-  }
-
-  function handleLocalChange(key, value) {
-    setLocalValues((current) => ({
-      ...current,
-      [key]: value,
-    }));
   }
 
   return (
@@ -144,24 +138,13 @@ function Header() {
         <p>Version 1.0 - Prueba</p>
       </div>
 
-      {isDashboard ? (
+      {visibleFilters.length > 0 && (
         <FilterBar
-          visibleFilters={["periodo", "tienda"]}
-          options={dashboardOptions}
-          values={dashboardValues}
-          onChange={handleDashboardChange}
-          loading={dashboardFiltersLoading}
-        />
-      ) : (
-        <FilterBar
-          visibleFilters={[
-            "periodo",
-            "tienda",
-            "vendedor",
-            "producto",
-          ]}
-          values={localValues}
-          onChange={handleLocalChange}
+          visibleFilters={visibleFilters}
+          options={options}
+          values={values}
+          onChange={handleChange}
+          loading={loading}
         />
       )}
     </header>
