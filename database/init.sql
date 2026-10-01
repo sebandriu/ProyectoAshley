@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS importaciones (
     id BIGSERIAL PRIMARY KEY,
     nombre_archivo VARCHAR(255) NOT NULL,
     tipo_informe VARCHAR(20) NOT NULL
-        CHECK (tipo_informe IN ('OF', 'VENTAS')),
+        CHECK (tipo_informe IN ('OF', 'VENTAS', 'CONSOLIDADO')),
     fecha_importacion TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     filas_totales INTEGER NOT NULL DEFAULT 0,
     filas_validas INTEGER NOT NULL DEFAULT 0,
