@@ -174,9 +174,19 @@ function calculateOfferState(document) {
 }
 
 function parseLine(accessor, rowNumber) {
-  const lineaSap = toInteger(
-    accessor("N° Linea", "N Linea", "Numero Linea", "LineNum")
+  const rawLineaSap = accessor(
+    "N° Linea",
+    "N Linea",
+    "Numero Linea",
+    "LineNum"
   );
+
+  const lineaSap =
+    rawLineaSap === null ||
+    rawLineaSap === undefined ||
+    String(rawLineaSap).trim() === ""
+      ? 0
+      : toInteger(rawLineaSap);
 
   if (lineaSap === null) {
     throw new Error(`La fila ${rowNumber} no contiene un número de línea válido.`);
