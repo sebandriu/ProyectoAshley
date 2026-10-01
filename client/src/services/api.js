@@ -36,6 +36,31 @@ export async function getKpiSummary(filters = {}) {
   return data;
 }
 
+export async function getKpiEvolution(filters = {}) {
+  const params = new URLSearchParams();
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && String(value).trim() !== "") {
+      params.set(key, String(value).trim());
+    }
+  });
+
+  const query = params.toString();
+  const response = await fetch(
+    `${API_URL}/kpis/evolucion${query ? `?${query}` : ""}`
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data.message || "No fue posible obtener la evolución comercial."
+    );
+  }
+
+  return data;
+}
+
 export async function getKpiFilters() {
   const response = await fetch(`${API_URL}/kpis/filtros`);
   const data = await response.json();
