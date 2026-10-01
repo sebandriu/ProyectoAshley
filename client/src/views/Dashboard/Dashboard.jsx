@@ -17,6 +17,8 @@ import KpiCard from "../../components/KpiCard/KpiCard";
 import {
   getKpiEvolution,
   getKpiSummary,
+  getPerformanceAnalytics,
+  getProductAnalytics,
   getSystemHealth,
 } from "../../services/api";
 
@@ -227,6 +229,14 @@ function Dashboard() {
   const [evolutionError, setEvolutionError] = useState("");
   const [evolutionMetric, setEvolutionMetric] = useState("cotizaciones");
 
+  const [analyticsStatus, setAnalyticsStatus] = useState("loading");
+  const [productData, setProductData] = useState({ resumen: {}, productos: [] });
+  const [performanceData, setPerformanceData] = useState({
+    tiendas: [],
+    vendedores: [],
+  });
+  const [analyticsError, setAnalyticsError] = useState("");
+
   const selectedDate = searchParams.get("fecha") ?? "";
   const selectedStore = searchParams.get("tienda") ?? "";
 
@@ -298,6 +308,41 @@ function Dashboard() {
         setEvolutionData([]);
         setEvolutionError(error.message);
         setEvolutionStatus("error");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedDate, selectedStore]);
+
+
+  useEffect(() => {
+    let active = true;
+    setAnalyticsStatus("loading");
+    setAnalyticsError("");
+
+    const filters = {
+      desde: selectedDate || undefined,
+      hasta: selectedDate || undefined,
+      tienda: selectedStore || undefined,
+    };
+
+    Promise.all([
+      getProductAnalytics(filters),
+      getPerformanceAnalytics(filters),
+    ])
+      .then(([products, performance]) => {
+        if (!active) return;
+
+        setProductData(products);
+        setPerformanceData(performance);
+        setAnalyticsStatus("success");
+      })
+      .catch((error) => {
+        if (!active) return;
+
+        setAnalyticsError(error.message);
+        setAnalyticsStatus("error");
       });
 
     return () => {
@@ -506,14 +551,74 @@ function Dashboard() {
                 <h2>Productos y demanda</h2>
               </div>
             </div>
+
+            <Link className="panel-link" to="/productos">
+              Ver módulo
+              <ArrowUpRight size={13} />
+            </Link>
           </header>
 
-          <div className="compact-empty-state">
-            <span>
-              Aquí se visualizarán productos cotizados, ventas y demanda no
-              convertida.
-            </span>
-          </div>
+          {analyticsStatus === "loading" && (
+            <div className="compact-empty-state">
+              <span>Analizando productos...</span>
+            </div>
+          )}
+
+          {analyticsStatus === "error" && (
+            <div className="compact-empty-state">
+              <span>{analyticsError}</span>
+            </div>
+          )}
+
+          {analyticsStatus === "success" && (
+            <div className="dashboard-analysis-content">
+              <div className="mini-metrics">
+                <div>
+                  <span>Unidades cotizadas</span>
+                  <strong>
+                    {formatInteger(productData.resumen?.unidadesCotizadas)}
+                  </strong>
+                </div>
+                <div>
+                  <span>No convertidas</span>
+                  <strong>
+                    {formatInteger(productData.resumen?.demandaNoConvertida)}
+                  </strong>
+                </div>
+                <div>
+                  <span>Conversión</span>
+                  <strong>
+                    {formatPercent(productData.resumen?.conversionUnidadesPct)}
+                  </strong>
+                </div>
+              </div>
+
+              <div className="ranking-list">
+                {(productData.productos ?? []).slice(0, 5).map((product) => (
+                  <div className="ranking-row" key={product.codigo}>
+                    <div className="ranking-main">
+                      <strong>{product.descripcion}</strong>
+                      <span>{product.codigo}</span>
+                    </div>
+                    <div className="ranking-values">
+                      <span>
+                        {formatInteger(product.unidadesCotizadas)} cot.
+                      </span>
+                      <strong>
+                        {formatInteger(product.demandaNoConvertida)} sin conv.
+                      </strong>
+                    </div>
+                  </div>
+                ))}
+
+                {(productData.productos ?? []).length === 0 && (
+                  <div className="ranking-empty">
+                    Sin productos para los filtros seleccionados.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </article>
 
         <article className="panel compact-analysis-panel">
@@ -525,13 +630,64 @@ function Dashboard() {
                 <h2>Tiendas y vendedores</h2>
               </div>
             </div>
+
+            <Link className="panel-link" to="/tiendas">
+              Ver módulo
+              <ArrowUpRight size={13} />
+            </Link>
           </header>
 
-          <div className="compact-empty-state">
-            <span>
-              Aquí se mostrarán comparaciones comerciales por tienda y vendedor.
-            </span>
-          </div>
+          {analyticsStatus === "loading" && (
+            <div className="compact-empty-state">
+              <span>Analizando rendimiento...</span>
+            </div>
+          )}
+
+          {analyticsStatus === "error" && (
+            <div className="compact-empty-state">
+              <span>{analyticsError}</span>
+            </div>
+          )}
+
+          {analyticsStatus === "success" && (
+            <div className="dashboard-performance-content">
+              <div className="performance-column">
+                <span className="performance-title">Tiendas</span>
+                {(performanceData.tiendas ?? []).slice(0, 4).map((store) => (
+                  <div className="performance-row" key={store.tienda}>
+                    <div>
+                      <strong>{store.tienda}</strong>
+                      <span>{store.ventas} ventas</span>
+                    </div>
+                    <strong>{formatPercent(store.conversionPct)}</strong>
+                  </div>
+                ))}
+              </div>
+
+              <div className="performance-column">
+                <span className="performance-title">Vendedores</span>
+                {(performanceData.vendedores ?? []).slice(0, 4).map((seller) => (
+                  <div
+                    className="performance-row"
+                    key={`${seller.tienda}-${seller.vendedor}`}
+                  >
+                    <div>
+                      <strong>{seller.vendedor}</strong>
+                      <span>{seller.tienda ?? "Sin tienda"}</span>
+                    </div>
+                    <strong>{formatCurrency(seller.montoVendido)}</strong>
+                  </div>
+                ))}
+              </div>
+
+              {(performanceData.tiendas ?? []).length === 0 &&
+                (performanceData.vendedores ?? []).length === 0 && (
+                  <div className="ranking-empty">
+                    Sin datos de rendimiento para los filtros seleccionados.
+                  </div>
+                )}
+            </div>
+          )}
         </article>
       </section>
     </div>
