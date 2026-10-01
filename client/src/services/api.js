@@ -11,6 +11,31 @@ export async function getSystemHealth() {
   return response.json();
 }
 
+export async function getKpiSummary(filters = {}) {
+  const params = new URLSearchParams();
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && String(value).trim() !== "") {
+      params.set(key, String(value).trim());
+    }
+  });
+
+  const query = params.toString();
+  const response = await fetch(
+    `${API_URL}/kpis/resumen${query ? `?${query}` : ""}`
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data.message || "No fue posible obtener los indicadores de Micapp."
+    );
+  }
+
+  return data;
+}
+
 export async function importSapFile(file) {
   const formData = new FormData();
   formData.append("archivo", file);
