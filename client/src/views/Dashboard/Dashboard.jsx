@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   FileText,
@@ -14,38 +14,54 @@ import {
 } from "lucide-react";
 
 import KpiCard from "../../components/KpiCard/KpiCard";
-import { getSystemHealth } from "../../services/api";
+import { getKpiSummary, getSystemHealth } from "../../services/api";
 
-const kpis = [
-  {
-    title: "Cotizaciones",
-    icon: FileText,
-    caption: "Ofertas comerciales registradas",
-  },
-  {
-    title: "Ventas",
-    icon: BadgeDollarSign,
-    caption: "Documentos convertidos en venta",
-  },
-  {
-    title: "Conversión",
-    icon: Percent,
-    caption: "Relación cotización / venta",
-  },
-  {
-    title: "Monto cotizado",
-    icon: CircleDollarSign,
-    caption: "Valor comercial cotizado",
-  },
-  {
-    title: "Ticket promedio",
-    icon: ReceiptText,
-    caption: "Promedio por operación",
-  },
-];
+const integerFormatter = new Intl.NumberFormat("es-CL", {
+  maximumFractionDigits: 0,
+});
+
+const currencyFormatter = new Intl.NumberFormat("es-CL", {
+  style: "currency",
+  currency: "CLP",
+  maximumFractionDigits: 0,
+});
+
+function formatInteger(value) {
+  return Number.isFinite(Number(value))
+    ? integerFormatter.format(Number(value))
+    : "—";
+}
+
+function formatCurrency(value) {
+  return Number.isFinite(Number(value))
+    ? currencyFormatter.format(Number(value))
+    : "—";
+}
+
+function formatPercent(value) {
+  return Number.isFinite(Number(value))
+    ? `${Number(value).toLocaleString("es-CL", {
+        maximumFractionDigits: 2,
+      })}%`
+    : "—";
+}
+
+function formatApiDate(value) {
+  if (!value) return null;
+
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+  if (!match) return null;
+
+  const [, year, month, day] = match;
+  return `${day}/${month}/${year}`;
+}
 
 function Dashboard() {
   const [systemStatus, setSystemStatus] = useState("checking");
+  const [kpiStatus, setKpiStatus] = useState("loading");
+  const [kpiData, setKpiData] = useState(null);
+  const [kpiError, setKpiError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -58,12 +74,88 @@ function Dashboard() {
         if (active) setSystemStatus("offline");
       });
 
+    getKpiSummary()
+      .then((data) => {
+        if (!active) return;
+
+        setKpiData(data);
+        setKpiStatus("success");
+      })
+      .catch((error) => {
+        if (!active) return;
+
+        setKpiError(error.message);
+        setKpiStatus("error");
+      });
+
     return () => {
       active = false;
     };
   }, []);
 
   const databaseOnline = systemStatus === "online";
+
+  const periodLabel = useMemo(() => {
+    const from = formatApiDate(kpiData?.periodoDisponible?.desde);
+    const to = formatApiDate(kpiData?.periodoDisponible?.hasta);
+
+    if (!from || !to) return null;
+
+    return from === to ? from : `${from} al ${to}`;
+  }, [kpiData]);
+
+  const kpis = useMemo(() => {
+    const loading = kpiStatus === "loading";
+    const data = kpiData;
+
+    return [
+      {
+        title: "Cotizaciones",
+        icon: FileText,
+        value: loading ? "…" : formatInteger(data?.cotizaciones?.total),
+        caption:
+          kpiStatus === "success"
+            ? `${formatInteger(data?.cotizaciones?.validas)} válidas · ${formatInteger(data?.cotizaciones?.pendientes)} pendientes`
+            : "Ofertas comerciales registradas",
+      },
+      {
+        title: "Ventas",
+        icon: BadgeDollarSign,
+        value: loading ? "…" : formatInteger(data?.ventas?.total),
+        caption:
+          kpiStatus === "success"
+            ? `FR ${formatInteger(data?.ventas?.fr)} · FD ${formatInteger(data?.ventas?.fd)}`
+            : "Documentos de venta válidos",
+      },
+      {
+        title: "Conversión",
+        icon: Percent,
+        value: loading
+          ? "…"
+          : formatPercent(data?.conversion?.resueltasPct),
+        caption:
+          kpiStatus === "success"
+            ? `${formatInteger(data?.cotizaciones?.conVenta)} de ${formatInteger(data?.cotizaciones?.resueltas)} OF resueltas`
+            : "Conversión de ofertas resueltas",
+      },
+      {
+        title: "Monto cotizado",
+        icon: CircleDollarSign,
+        value: loading
+          ? "…"
+          : formatCurrency(data?.montos?.cotizadoBruto),
+        caption: "Monto bruto de cotizaciones válidas",
+      },
+      {
+        title: "Ticket promedio",
+        icon: ReceiptText,
+        value: loading
+          ? "…"
+          : formatCurrency(data?.montos?.ticketPromedioBruto),
+        caption: "Promedio bruto por documento de venta",
+      },
+    ];
+  }, [kpiData, kpiStatus]);
 
   return (
     <div className="page dashboard-page">
@@ -72,6 +164,7 @@ function Dashboard() {
           <KpiCard
             key={kpi.title}
             title={kpi.title}
+            value={kpi.value}
             icon={kpi.icon}
             caption={kpi.caption}
           />
@@ -87,9 +180,15 @@ function Dashboard() {
             </div>
 
             <div className="metric-tags" aria-label="Métricas disponibles">
-              <span className="metric-tag active">Cotizaciones</span>
-              <span className="metric-tag">Ventas</span>
-              <span className="metric-tag">Conversión</span>
+              <span className="metric-tag active">
+                Cotizaciones {formatInteger(kpiData?.cotizaciones?.total)}
+              </span>
+              <span className="metric-tag">
+                Ventas {formatInteger(kpiData?.ventas?.total)}
+              </span>
+              <span className="metric-tag">
+                Conversión {formatPercent(kpiData?.conversion?.resueltasPct)}
+              </span>
             </div>
           </header>
 
@@ -99,9 +198,20 @@ function Dashboard() {
                 <BarChart3 size={22} strokeWidth={1.7} />
               </div>
 
-              <strong>Visualización comercial</strong>
+              <strong>
+                {kpiStatus === "success"
+                  ? "Datos comerciales procesados"
+                  : kpiStatus === "error"
+                    ? "No fue posible cargar los indicadores"
+                    : "Cargando información comercial"}
+              </strong>
+
               <span>
-                El gráfico se mostrará cuando exista información procesada.
+                {kpiStatus === "success"
+                  ? `Período disponible: ${periodLabel ?? "sin fecha disponible"}. Hay ${formatInteger(kpiData?.cotizaciones?.convertidasCompletas)} OF convertidas completas, ${formatInteger(kpiData?.cotizaciones?.conversionesParciales)} parciales y ${formatInteger(kpiData?.cotizaciones?.pendientes)} pendientes. El gráfico temporal se incorporará en el siguiente incremento.`
+                  : kpiStatus === "error"
+                    ? kpiError
+                    : "Micapp está consultando los datos procesados en PostgreSQL."}
               </span>
             </div>
           </div>
@@ -134,13 +244,20 @@ function Dashboard() {
             <div>
               <h3>
                 {databaseOnline
-                  ? "PostgreSQL está disponible"
-                  : "Aún no hay información cargada"}
+                  ? kpiStatus === "success"
+                    ? "Información comercial disponible"
+                    : "PostgreSQL está disponible"
+                  : "Base de datos no disponible"}
               </h3>
+
               <p>
-                {databaseOnline
-                  ? "Micapp ya puede comunicarse con el backend y la base de datos. El siguiente incremento incorporará la importación y el ETL de archivos SAP."
-                  : "Inicia el backend y PostgreSQL para habilitar la capa de datos de Micapp."}
+                {!databaseOnline
+                  ? "Inicia el backend y PostgreSQL para habilitar la capa de datos de Micapp."
+                  : kpiStatus === "success"
+                    ? `Micapp está trabajando con información procesada del ${periodLabel ?? "período disponible"}. Se registran ${formatInteger(kpiData?.ventas?.total)} documentos de venta válidos y ${formatInteger(kpiData?.cotizaciones?.total)} cotizaciones.`
+                    : kpiStatus === "error"
+                      ? `La base de datos está conectada, pero los KPI no pudieron cargarse: ${kpiError}`
+                      : "Micapp está conectado al backend y consultando los indicadores comerciales."}
               </p>
             </div>
           </div>
