@@ -785,3 +785,129 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+/* =========================================
+   GRÁFICO DE EVOLUCIÓN
+========================================= */
+
+.metric-tag {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.metric-tag:focus-visible {
+  outline: 2px solid rgba(247, 148, 29, 0.28);
+  outline-offset: 2px;
+}
+
+.evolution-visual {
+  min-height: 285px;
+  overflow: hidden;
+  border: 1px solid #ebecef;
+  border-radius: 10px;
+  background: #fbfbfc;
+}
+
+.evolution-chart {
+  width: 100%;
+  min-height: 285px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 8px 0;
+}
+
+.evolution-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 285px;
+  overflow: visible;
+}
+
+.evolution-grid-line {
+  stroke: #e8eaed;
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+
+.evolution-axis-label,
+.evolution-date-label,
+.evolution-value-label {
+  fill: #8d9299;
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-size: 9px;
+}
+
+.evolution-value-label {
+  fill: #656a72;
+  font-weight: 700;
+}
+
+.evolution-bar {
+  fill: #f7941d;
+  opacity: 0.88;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+  transform-box: fill-box;
+  transform-origin: bottom;
+}
+
+.evolution-bar:hover {
+  opacity: 1;
+  transform: scaleY(1.015);
+}
+
+.evolution-empty {
+  min-height: 285px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 22px;
+  color: #e8840d;
+  text-align: center;
+}
+
+.evolution-empty strong {
+  color: #555a61;
+  font-size: 11px;
+}
+
+.evolution-empty span {
+  max-width: 330px;
+  color: #9da2a9;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.evolution-footnote {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 2px 0;
+  color: #9a9fa6;
+  font-size: 9px;
+}
+
+@media (max-width: 700px) {
+  .evolution-chart,
+  .evolution-empty,
+  .evolution-visual {
+    min-height: 235px;
+  }
+
+  .evolution-date-label {
+    font-size: 8px;
+  }
+}
