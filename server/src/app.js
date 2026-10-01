@@ -5,6 +5,7 @@ import express from "express";
 
 import { closeDatabase } from "./config/database.js";
 import healthRoutes from "./routes/healthRoutes.js";
+import importRoutes from "./routes/importRoutes.js";
 
 const app = express();
 const PORT = Number(process.env.PORT || 3001);
@@ -25,6 +26,7 @@ app.get("/api", (_req, res) => {
 });
 
 app.use("/api/health", healthRoutes);
+app.use("/api/importaciones", importRoutes);
 
 const server = app.listen(PORT, () => {
   console.log(`Micapp API disponible en http://localhost:${PORT}`);
