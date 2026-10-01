@@ -1,4 +1,5 @@
 import {
+  getKpiEvolution,
   getKpiFilterOptions,
   getKpiSummary,
 } from "../services/kpiService.js";
@@ -39,6 +40,31 @@ export async function getFilters(_req, res) {
       message:
         error.message ||
         "No fue posible obtener los filtros disponibles.",
+    });
+  }
+}
+
+
+export async function getEvolution(req, res) {
+  try {
+    const evolution = await getKpiEvolution({
+      desde: req.query.desde,
+      hasta: req.query.hasta,
+      tienda: req.query.tienda,
+      vendedor: req.query.vendedor,
+    });
+
+    return res.json(evolution);
+  } catch (error) {
+    console.error("Error al calcular evolución KPI:", error);
+
+    const isValidationError =
+      /formato|fecha|posterior/i.test(error.message ?? "");
+
+    return res.status(isValidationError ? 400 : 500).json({
+      message:
+        error.message ||
+        "No fue posible calcular la evolución comercial.",
     });
   }
 }
