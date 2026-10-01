@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";\nimport { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   FileText,
   BadgeDollarSign,
@@ -12,7 +13,8 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 
-import KpiCard from "../../components/KpiCard/KpiCard";\nimport { getSystemHealth } from "../../services/api";
+import KpiCard from "../../components/KpiCard/KpiCard";
+import { getSystemHealth } from "../../services/api";
 
 const kpis = [
   {
@@ -43,6 +45,26 @@ const kpis = [
 ];
 
 function Dashboard() {
+  const [systemStatus, setSystemStatus] = useState("checking");
+
+  useEffect(() => {
+    let active = true;
+
+    getSystemHealth()
+      .then(() => {
+        if (active) setSystemStatus("online");
+      })
+      .catch(() => {
+        if (active) setSystemStatus("offline");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const databaseOnline = systemStatus === "online";
+
   return (
     <div className="page dashboard-page">
       <section className="kpi-grid" aria-label="Indicadores principales">
