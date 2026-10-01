@@ -1,6 +1,31 @@
 const API_URL =
   import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 
+function buildQuery(filters = {}) {
+  const params = new URLSearchParams();
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && String(value).trim() !== "") {
+      params.set(key, String(value).trim());
+    }
+  });
+
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
+async function getJson(path, fallbackMessage) {
+  const response = await fetch(`${API_URL}${path}`);
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || fallbackMessage);
+  }
+
+  return data;
+}
+
+
 export async function getSystemHealth() {
   const response = await fetch(`${API_URL}/health`);
 
@@ -72,6 +97,42 @@ export async function getKpiFilters() {
   }
 
   return data;
+}
+
+
+export function getAnalyticsFilters() {
+  return getJson(
+    "/analytics/filtros",
+    "No fue posible obtener los filtros analíticos."
+  );
+}
+
+export function getProductAnalytics(filters = {}) {
+  return getJson(
+    `/analytics/productos${buildQuery(filters)}`,
+    "No fue posible obtener el análisis de productos."
+  );
+}
+
+export function getPerformanceAnalytics(filters = {}) {
+  return getJson(
+    `/analytics/rendimiento${buildQuery(filters)}`,
+    "No fue posible obtener el análisis de rendimiento."
+  );
+}
+
+export function getQuoteAnalytics(filters = {}) {
+  return getJson(
+    `/analytics/cotizaciones${buildQuery(filters)}`,
+    "No fue posible obtener las cotizaciones."
+  );
+}
+
+export function getSalesAnalytics(filters = {}) {
+  return getJson(
+    `/analytics/ventas${buildQuery(filters)}`,
+    "No fue posible obtener las ventas."
+  );
 }
 
 export async function importSapFile(file) {
