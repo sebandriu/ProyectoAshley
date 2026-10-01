@@ -4,6 +4,7 @@ import cors from "cors";
 import express from "express";
 
 import { closeDatabase } from "./config/database.js";
+import analyticsRoutes from "./routes/analyticsRoutes.js";
 import healthRoutes from "./routes/healthRoutes.js";
 import importRoutes from "./routes/importRoutes.js";
 import kpiRoutes from "./routes/kpiRoutes.js";
@@ -27,6 +28,7 @@ app.get("/api", (_req, res) => {
 });
 
 app.use("/api/health", healthRoutes);
+app.use("/api/analytics", analyticsRoutes);
 app.use("/api/importaciones", importRoutes);
 app.use("/api/kpis", kpiRoutes);
 
