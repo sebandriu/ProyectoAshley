@@ -1,4 +1,7 @@
-import { getKpiSummary } from "../services/kpiService.js";
+import {
+  getKpiFilterOptions,
+  getKpiSummary,
+} from "../services/kpiService.js";
 
 export async function getSummary(req, res) {
   try {
@@ -20,6 +23,22 @@ export async function getSummary(req, res) {
       message:
         error.message ||
         "No fue posible calcular el resumen de indicadores.",
+    });
+  }
+}
+
+
+export async function getFilters(_req, res) {
+  try {
+    const filters = await getKpiFilterOptions();
+    return res.json(filters);
+  } catch (error) {
+    console.error("Error al obtener filtros KPI:", error);
+
+    return res.status(500).json({
+      message:
+        error.message ||
+        "No fue posible obtener los filtros disponibles.",
     });
   }
 }
