@@ -15,7 +15,7 @@ function filtersForPath(pathname) {
   return [];
 }
 
-function parseProducts(value) {
+function parseList(value) {
   return [
     ...new Set(
       String(value ?? "")
@@ -60,7 +60,6 @@ function Header() {
     if (!filterData) {
       return {
         tienda: [],
-        vendedor: [],
       };
     }
 
@@ -72,18 +71,12 @@ function Header() {
           label: store,
         })),
       ],
-      vendedor: [
-        { value: "", label: "Todos los vendedores" },
-        ...(filterData.vendedores ?? []).map((seller) => ({
-          value: seller,
-          label: seller,
-        })),
-      ],
     };
   }, [filterData]);
 
   const legacyDate = searchParams.get("fecha") ?? "";
   const legacyProduct = searchParams.get("producto") ?? "";
+  const legacySeller = searchParams.get("vendedor") ?? "";
 
   const values = {
     periodo: {
@@ -91,8 +84,10 @@ function Header() {
       hasta: searchParams.get("hasta") ?? legacyDate,
     },
     tienda: searchParams.get("tienda") ?? "",
-    vendedor: searchParams.get("vendedor") ?? "",
-    producto: parseProducts(
+    vendedor: parseList(
+      searchParams.get("vendedores") ?? legacySeller
+    ),
+    producto: parseList(
       searchParams.get("productos") ?? legacyProduct
     ),
   };
@@ -127,6 +122,20 @@ function Header() {
         nextParams.set("productos", products.join(","));
       } else {
         nextParams.delete("productos");
+      }
+
+      setSearchParams(nextParams);
+      return;
+    }
+
+    if (key === "vendedor") {
+      const sellers = Array.isArray(value) ? value : [];
+      nextParams.delete("vendedor");
+
+      if (sellers.length > 0) {
+        nextParams.set("vendedores", sellers.join(","));
+      } else {
+        nextParams.delete("vendedores");
       }
 
       setSearchParams(nextParams);
