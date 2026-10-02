@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 
 import FilterBar from "../FilterBar/FilterBar";
@@ -31,6 +31,7 @@ function Header() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [filterData, setFilterData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const dashboardDefaultApplied = useRef(false);
 
   const visibleFilters = filtersForPath(location.pathname);
 
@@ -55,6 +56,48 @@ function Header() {
       active = false;
     };
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (location.pathname !== "/") {
+      dashboardDefaultApplied.current = false;
+      return;
+    }
+
+    if (dashboardDefaultApplied.current) return;
+
+    const alreadyHasPeriod =
+      searchParams.get("desde") ||
+      searchParams.get("hasta") ||
+      searchParams.get("fecha");
+
+    if (alreadyHasPeriod) {
+      dashboardDefaultApplied.current = true;
+      return;
+    }
+
+    const maxAvailable = filterData?.periodoDisponible?.hasta;
+    const minAvailable = filterData?.periodoDisponible?.desde;
+
+    if (!maxAvailable) return;
+
+    const monthStart = `${maxAvailable.slice(0, 7)}-01`;
+    const from =
+      minAvailable && minAvailable > monthStart
+        ? minAvailable
+        : monthStart;
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("desde", from);
+    nextParams.set("hasta", maxAvailable);
+
+    dashboardDefaultApplied.current = true;
+    setSearchParams(nextParams, { replace: true });
+  }, [
+    filterData,
+    location.pathname,
+    searchParams,
+    setSearchParams,
+  ]);
 
   const options = useMemo(() => {
     if (!filterData) {
