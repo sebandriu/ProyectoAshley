@@ -34,11 +34,21 @@ function SaleMatches({ matches }) {
     <div className="sale-match-list">
       {matches.map((item) => (
         <div className="sale-match-item" key={item.codigo}>
-          <strong>{item.codigo}</strong>
-          <span>
-            {number.format(Number(item.cantidad || 0))} u. ·{" "}
-            {currency.format(Number(item.montoBruto || 0))}
-          </span>
+          <div className="sale-match-product">
+            <strong>{item.codigo}</strong>
+            {item.descripcion && item.descripcion !== item.codigo && (
+              <span className="sale-match-description">
+                {item.descripcion}
+              </span>
+            )}
+          </div>
+
+          <div className="sale-match-values">
+            <span>{number.format(Number(item.cantidad || 0))} unidades</span>
+            <strong>
+              {currency.format(Number(item.montoBruto || 0))}
+            </strong>
+          </div>
         </div>
       ))}
     </div>
@@ -49,6 +59,7 @@ function Ventas() {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState("loading");
   const [data, setData] = useState([]);
+  const [productSummary, setProductSummary] = useState([]);
   const [summary, setSummary] = useState({
     validas: 0,
     fr: 0,
@@ -96,6 +107,7 @@ function Ventas() {
         if (!active) return;
 
         setData(response.ventas ?? []);
+        setProductSummary(response.resumenProductos ?? []);
         setSummary(
           response.resumen ?? {
             validas: 0,
@@ -121,6 +133,31 @@ function Ventas() {
 
   const hasProductFilter = selectedProducts.length > 0;
 
+  const productBreakdown = useMemo(() => {
+    const summaryMap = new Map(
+      productSummary.map((item) => [
+        String(item.codigo).toUpperCase(),
+        item,
+      ])
+    );
+
+    return selectedProducts.map((code) => {
+      const found = summaryMap.get(String(code).toUpperCase());
+
+      return (
+        found ?? {
+          codigo: code,
+          descripcion: code,
+          unidadesVendidas: 0,
+          montoVendido: 0,
+          documentos: 0,
+          fr: 0,
+          fd: 0,
+        }
+      );
+    });
+  }, [productSummary, selectedProducts]);
+
   return (
     <div className="page">
       <section className="module-summary-grid">
@@ -139,7 +176,7 @@ function Ventas() {
         <article className="summary-card">
           <span>
             {hasProductFilter
-              ? "Monto vendido filtrado"
+              ? "Monto total seleccionado"
               : "Monto vendido"}
           </span>
           <strong>
@@ -147,6 +184,63 @@ function Ventas() {
           </strong>
         </article>
       </section>
+
+      {hasProductFilter && (
+        <section className="panel sales-product-summary-panel">
+          <header className="module-header">
+            <div>
+              <span className="panel-eyebrow">Productos seleccionados</span>
+              <h2>Venta por código</h2>
+            </div>
+            <span className="module-count">
+              {selectedProducts.length}{" "}
+              {selectedProducts.length === 1 ? "código" : "códigos"}
+            </span>
+          </header>
+
+          <div className="sales-product-summary-grid">
+            {productBreakdown.map((product) => (
+              <article
+                className="sales-product-summary-card"
+                key={product.codigo}
+              >
+                <div className="sales-product-summary-heading">
+                  <div>
+                    <strong>{product.codigo}</strong>
+                    {product.descripcion &&
+                      product.descripcion !== product.codigo && (
+                        <span>{product.descripcion}</span>
+                      )}
+                  </div>
+
+                  <span>
+                    {number.format(
+                      Number(product.unidadesVendidas || 0)
+                    )}{" "}
+                    unidades
+                  </span>
+                </div>
+
+                <div className="sales-product-summary-amount">
+                  {currency.format(Number(product.montoVendido || 0))}
+                </div>
+
+                <div className="sales-product-summary-meta">
+                  <span>
+                    {product.documentos}{" "}
+                    {product.documentos === 1
+                      ? "documento"
+                      : "documentos"}
+                  </span>
+                  <span>
+                    {product.fr} FR · {product.fd} FD
+                  </span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="panel module-panel">
         <header className="module-header">
@@ -159,12 +253,13 @@ function Ventas() {
 
         {hasProductFilter && (
           <div className="filter-context-note">
-            {selectedProducts.length > 1
-              ? "Con varios códigos seleccionados, se muestra una FR/FD si contiene al menos uno de ellos. "
-              : "La FR/FD se muestra cuando contiene el código seleccionado. "}
-            <strong>Monto filtrado</strong> suma únicamente las líneas de los
-            productos buscados. <strong>Total documento</strong> se mantiene
-            solo como referencia de la venta completa.
+            Cada código se muestra por separado con sus propias unidades y
+            su propio monto vendido. Si un código aparece varias veces dentro
+            de una misma FR/FD, Micapp agrupa esas líneas para ese código.
+            <strong> Monto seleccionados</strong> suma los importes de los
+            códigos buscados dentro del documento, mientras que
+            <strong> Total documento</strong> muestra la venta completa solo
+            como referencia.
           </div>
         )}
 
@@ -203,9 +298,8 @@ function Ventas() {
 
                   {hasProductFilter ? (
                     <>
-                      <th>Productos filtrados</th>
-                      <th className="numeric">Unid. filtradas</th>
-                      <th className="numeric">Monto filtrado</th>
+                      <th>Detalle por código</th>
+                      <th className="numeric">Monto seleccionados</th>
                       <th className="numeric">Total documento</th>
                     </>
                   ) : (
@@ -242,11 +336,6 @@ function Ventas() {
                           <SaleMatches
                             matches={sale.productosCoincidentes}
                           />
-                        </td>
-                        <td className="numeric">
-                          {number.format(
-                            Number(sale.unidadesCoincidentes || 0)
-                          )}
                         </td>
                         <td className="numeric filtered-sale-amount">
                           {currency.format(
