@@ -73,6 +73,29 @@ function toInteger(value) {
   return number === null ? null : Math.trunc(number);
 }
 
+function normalizeDiscountPct(value) {
+  const number = toNumber(value);
+
+  if (number === null) {
+    return {
+      value: null,
+      anomalous: false,
+    };
+  }
+
+  if (number < -100 || number > 100) {
+    return {
+      value: null,
+      anomalous: true,
+    };
+  }
+
+  return {
+    value: number,
+    anomalous: false,
+  };
+}
+
 function toDate(value) {
   if (value === null || value === undefined || value === "") return null;
 
@@ -199,6 +222,10 @@ function parseLine(accessor, rowNumber) {
   const tipoVentaDestino =
     toText(accessor("Tipo Venta Destino"))?.toUpperCase() ?? null;
 
+  const discount = normalizeDiscountPct(
+    accessor("% Descuento", "Descuento", "DiscPrcnt")
+  );
+
   let targetType = toInteger(
     accessor("TargetType", "Clase de documento de destino")
   );
@@ -232,9 +259,8 @@ function parseLine(accessor, rowNumber) {
     almacen: toText(accessor("Almacén", "Almacen", "WhsCode")),
     precioUnitario: toNumber(accessor("Precio Unitario")),
     precioSinIva: toNumber(accessor("Precio sin IVA")),
-    descuentoPct: toNumber(
-      accessor("% Descuento", "Descuento", "DiscPrcnt")
-    ),
+    descuentoPct: discount.value,
+    descuentoAnomalo: discount.anomalous,
     totalNeto: toNumber(accessor("Total Neto", "LineTotal")),
     totalBruto: toNumber(accessor("Total Bruto", "GTotal")),
     costoUnitario: toNumber(accessor("Costo Unitario", "StockPrice")),
@@ -743,6 +769,7 @@ export async function processConsolidatedImport(
     productos: 0,
     servicios: 0,
     relaciones: 0,
+    descuentosAnomalos: 0,
   };
 
   for (const document of documentList) {
@@ -817,6 +844,10 @@ export async function processConsolidatedImport(
         summary.productos += 1;
       }
 
+      if (line.descuentoAnomalo) {
+        summary.descuentosAnomalos += 1;
+      }
+
       if (lineBatch.length >= LINE_BATCH_SIZE) {
         await upsertLinesBatch(client, lineBatch);
         lineBatch = [];
@@ -831,6 +862,12 @@ export async function processConsolidatedImport(
   console.log(
     `[Importación ${importacionId}] Líneas ETL: ${summary.lineas}`
   );
+
+  if (summary.descuentosAnomalos > 0) {
+    console.warn(
+      `[Importación ${importacionId}] Descuentos anómalos excluidos del análisis: ${summary.descuentosAnomalos}`
+    );
+  }
 
   const targetEntrySet = new Set();
 
