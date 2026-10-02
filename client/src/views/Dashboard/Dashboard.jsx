@@ -237,12 +237,12 @@ function QuoteStatusChart({ data }) {
   const statuses = [
     {
       key: "complete",
-      label: "Convertidas completas",
+      label: "Cierre completo",
       value: Number(data?.convertidasCompletas || 0),
     },
     {
       key: "partial",
-      label: "Conversión parcial",
+      label: "Cierre parcial",
       value: Number(data?.conversionesParciales || 0),
     },
     {
