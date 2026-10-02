@@ -114,6 +114,18 @@ export function searchProductCodes(query, limit = 8) {
   );
 }
 
+export function searchSellerNames(query, options = {}) {
+  return getJson(
+    "/analytics/vendedores/buscar" +
+      buildQuery({
+        q: query,
+        limit: options.limit ?? 8,
+        tienda: options.tienda,
+      }),
+    "No fue posible buscar vendedores."
+  );
+}
+
 export function getProductAnalytics(filters = {}) {
   return getJson(
     `/analytics/productos${buildQuery(filters)}`,
