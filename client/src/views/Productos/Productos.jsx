@@ -10,11 +10,84 @@ const currency = new Intl.NumberFormat("es-CL", {
   maximumFractionDigits: 0,
 });
 
+function compareValues(a, b, direction) {
+  const aMissing = a === null || a === undefined || a === "";
+  const bMissing = b === null || b === undefined || b === "";
+
+  if (aMissing && bMissing) return 0;
+  if (aMissing) return 1;
+  if (bMissing) return -1;
+
+  const numericA = Number(a);
+  const numericB = Number(b);
+  const bothNumeric =
+    Number.isFinite(numericA) &&
+    Number.isFinite(numericB) &&
+    typeof a !== "string" &&
+    typeof b !== "string";
+
+  let result;
+
+  if (bothNumeric) {
+    result = numericA - numericB;
+  } else {
+    result = String(a).localeCompare(String(b), "es", {
+      numeric: true,
+      sensitivity: "base",
+    });
+  }
+
+  return direction === "asc" ? result : -result;
+}
+
+function SortableHeader({
+  label,
+  sortKey,
+  sort,
+  onSort,
+  numeric = false,
+}) {
+  const active = sort.key === sortKey;
+  const symbol = active
+    ? sort.direction === "asc"
+      ? "↑"
+      : "↓"
+    : "↕";
+
+  return (
+    <th
+      className={numeric ? "numeric sortable-th" : "sortable-th"}
+      aria-sort={
+        active
+          ? sort.direction === "asc"
+            ? "ascending"
+            : "descending"
+          : "none"
+      }
+    >
+      <button
+        type="button"
+        className="table-sort-button"
+        onClick={() => onSort(sortKey, numeric)}
+      >
+        <span>{label}</span>
+        <span className={active ? "sort-symbol active" : "sort-symbol"}>
+          {symbol}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 function Productos() {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState("loading");
   const [data, setData] = useState({ resumen: {}, productos: [] });
   const [error, setError] = useState("");
+  const [sort, setSort] = useState({
+    key: "unidadesCotizadas",
+    direction: "desc",
+  });
 
   const filters = useMemo(() => {
     const legacyDate = searchParams.get("fecha") || undefined;
@@ -53,7 +126,33 @@ function Productos() {
   }, [filters]);
 
   const summary = data.resumen ?? {};
-  const products = data.productos ?? [];
+
+  const products = useMemo(() => {
+    const rows = [...(data.productos ?? [])];
+
+    rows.sort((a, b) =>
+      compareValues(a[sort.key], b[sort.key], sort.direction)
+    );
+
+    return rows;
+  }, [data.productos, sort]);
+
+  function handleSort(key, numericColumn) {
+    setSort((current) => {
+      if (current.key === key) {
+        return {
+          key,
+          direction:
+            current.direction === "asc" ? "desc" : "asc",
+        };
+      }
+
+      return {
+        key,
+        direction: numericColumn ? "desc" : "asc",
+      };
+    });
+  }
 
   return (
     <div className="page">
@@ -108,14 +207,60 @@ function Productos() {
             <table className="analytics-table">
               <thead>
                 <tr>
-                  <th>Código</th>
-                  <th>Producto</th>
-                  <th className="numeric">Cotizadas</th>
-                  <th className="numeric">Convertidas</th>
-                  <th className="numeric">No convertidas</th>
-                  <th className="numeric">Vendidas</th>
-                  <th className="numeric">Conversión</th>
-                  <th className="numeric">Monto vendido</th>
+                  <SortableHeader
+                    label="Código"
+                    sortKey="codigo"
+                    sort={sort}
+                    onSort={handleSort}
+                  />
+                  <SortableHeader
+                    label="Producto"
+                    sortKey="descripcion"
+                    sort={sort}
+                    onSort={handleSort}
+                  />
+                  <SortableHeader
+                    label="Cotizadas"
+                    sortKey="unidadesCotizadas"
+                    sort={sort}
+                    onSort={handleSort}
+                    numeric
+                  />
+                  <SortableHeader
+                    label="Convertidas"
+                    sortKey="unidadesConvertidas"
+                    sort={sort}
+                    onSort={handleSort}
+                    numeric
+                  />
+                  <SortableHeader
+                    label="No convertidas"
+                    sortKey="demandaNoConvertida"
+                    sort={sort}
+                    onSort={handleSort}
+                    numeric
+                  />
+                  <SortableHeader
+                    label="Vendidas"
+                    sortKey="unidadesVendidas"
+                    sort={sort}
+                    onSort={handleSort}
+                    numeric
+                  />
+                  <SortableHeader
+                    label="Conversión"
+                    sortKey="conversionUnidadesPct"
+                    sort={sort}
+                    onSort={handleSort}
+                    numeric
+                  />
+                  <SortableHeader
+                    label="Monto vendido"
+                    sortKey="montoVendido"
+                    sort={sort}
+                    onSort={handleSort}
+                    numeric
+                  />
                 </tr>
               </thead>
               <tbody>
