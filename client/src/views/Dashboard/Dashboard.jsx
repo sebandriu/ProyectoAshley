@@ -45,6 +45,10 @@ function formatCurrency(value) {
 }
 
 function formatPercent(value) {
+  if (value === null || value === undefined || value === "") {
+    return "—";
+  }
+
   return Number.isFinite(Number(value))
     ? `${Number(value).toLocaleString("es-CL", {
         maximumFractionDigits: 2,
