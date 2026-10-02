@@ -1,5 +1,9 @@
 import "dotenv/config";
 
+import { existsSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import cors from "cors";
 import express from "express";
 
@@ -11,6 +15,12 @@ import kpiRoutes from "./routes/kpiRoutes.js";
 
 const app = express();
 const PORT = Number(process.env.PORT || 3001);
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const clientDistPath = resolve(__dirname, "../../client/dist");
+const clientIndexPath = join(clientDistPath, "index.html");
+const clientBuildAvailable = existsSync(clientIndexPath);
 
 app.use(
   cors({
@@ -32,8 +42,30 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/importaciones", importRoutes);
 app.use("/api/kpis", kpiRoutes);
 
+if (clientBuildAvailable) {
+  app.use(express.static(clientDistPath));
+
+  app.use((req, res, next) => {
+    if (req.method !== "GET" || req.path.startsWith("/api")) {
+      return next();
+    }
+
+    return res.sendFile(clientIndexPath);
+  });
+}
+
 const server = app.listen(PORT, () => {
   console.log(`Micapp API disponible en http://localhost:${PORT}`);
+
+  if (clientBuildAvailable) {
+    console.log(
+      `Micapp web disponible en http://localhost:${PORT} (build de client/dist)`
+    );
+  } else {
+    console.log(
+      "Frontend compilado no encontrado. Para modo demo ejecuta: cd client && npm run build"
+    );
+  }
 });
 
 async function shutdown() {
