@@ -736,9 +736,56 @@ export async function getSalesAnalytics(filters = {}) {
     summaryValues
   );
 
+  let resumenProductos = [];
+
+  if (hasProductFilter) {
+    const productSummaryValues = [...values, productCodes];
+    const productSummaryParameter =
+      "$" + productSummaryValues.length + "::text[]";
+
+    const productSummaryResult = await pool.query(
+      `
+        SELECT
+          dd.codigo_item AS codigo,
+          MAX(dd.descripcion) AS descripcion,
+          COALESCE(SUM(dd.cantidad), 0) AS unidades_vendidas,
+          COALESCE(SUM(dd.total_bruto), 0) AS monto_vendido,
+          COUNT(DISTINCT d.id) AS documentos,
+          COUNT(DISTINCT d.id) FILTER (
+            WHERE d.tipo_documento = 'FR'
+          ) AS fr,
+          COUNT(DISTINCT d.id) FILTER (
+            WHERE d.tipo_documento = 'FD'
+          ) AS fd
+        FROM documentos d
+        INNER JOIN detalle_documento dd
+          ON dd.documento_id = d.id
+        ${where}${extra}
+          AND COALESCE(d.cancelada_sap, 'N') = 'N'
+          AND dd.tipo_linea = 'PRODUCTO'
+          AND dd.codigo_item = ANY(${productSummaryParameter})
+        GROUP BY dd.codigo_item
+        ORDER BY array_position(
+          ${productSummaryParameter},
+          dd.codigo_item
+        )
+      `,
+      productSummaryValues
+    );
+
+    resumenProductos = productSummaryResult.rows.map((row) => ({
+      codigo: row.codigo,
+      descripcion: row.descripcion || row.codigo,
+      unidadesVendidas: numeric(row.unidades_vendidas),
+      montoVendido: numeric(row.monto_vendido),
+      documentos: integer(row.documentos),
+      fr: integer(row.fr),
+      fd: integer(row.fd),
+    }));
+  }
+
   let matchingSelect = `
     '[]'::jsonb AS productos_coincidentes,
-    NULL::numeric AS unidades_coincidentes,
     NULL::numeric AS monto_coincidente
   `;
 
@@ -752,14 +799,19 @@ export async function getSalesAnalytics(filters = {}) {
           SELECT jsonb_agg(
             jsonb_build_object(
               'codigo', coincidencias.codigo_item,
+              'descripcion', coincidencias.descripcion,
               'cantidad', coincidencias.cantidad,
               'montoBruto', coincidencias.monto_bruto
             )
-            ORDER BY coincidencias.codigo_item
+            ORDER BY array_position(
+              ${productParameter},
+              coincidencias.codigo_item
+            )
           )
           FROM (
             SELECT
               md.codigo_item,
+              MAX(md.descripcion) AS descripcion,
               SUM(COALESCE(md.cantidad, 0)) AS cantidad,
               SUM(COALESCE(md.total_bruto, 0)) AS monto_bruto
             FROM detalle_documento md
@@ -771,16 +823,6 @@ export async function getSalesAnalytics(filters = {}) {
         ),
         '[]'::jsonb
       ) AS productos_coincidentes,
-      COALESCE(
-        (
-          SELECT SUM(COALESCE(mu.cantidad, 0))
-          FROM detalle_documento mu
-          WHERE mu.documento_id = d.id
-            AND mu.tipo_linea = 'PRODUCTO'
-            AND mu.codigo_item = ANY(${productParameter})
-        ),
-        0
-      ) AS unidades_coincidentes,
       COALESCE(
         (
           SELECT SUM(COALESCE(mm.total_bruto, 0))
@@ -838,6 +880,7 @@ export async function getSalesAnalytics(filters = {}) {
       monto: numeric(summaryRow.monto),
       montoEsFiltrado: hasProductFilter,
     },
+    resumenProductos,
     ventas: result.rows.map((row) => ({
       tipo: row.tipo_documento,
       docentry: row.docentry_sap,
@@ -854,14 +897,11 @@ export async function getSalesAnalytics(filters = {}) {
       productosCoincidentes: Array.isArray(row.productos_coincidentes)
         ? row.productos_coincidentes.map((item) => ({
             codigo: item.codigo,
+            descripcion: item.descripcion || item.codigo,
             cantidad: numeric(item.cantidad),
             montoBruto: numeric(item.montoBruto),
           }))
         : [],
-      unidadesCoincidentes:
-        row.unidades_coincidentes === null
-          ? null
-          : numeric(row.unidades_coincidentes),
       montoCoincidente:
         row.monto_coincidente === null
           ? null
