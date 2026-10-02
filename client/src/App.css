@@ -2343,3 +2343,614 @@
     justify-content: flex-start;
   }
 }
+
+
+/* =========================================
+   RESPONSIVE GLOBAL - ESCRITORIO / NOTEBOOK / MÓVIL
+========================================= */
+
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.sidebar-link-mobile-label {
+  display: none;
+}
+
+.table-scroll {
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #c7cbd1 transparent;
+}
+
+.table-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #c7cbd1;
+}
+
+.table-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Notebook y pantallas medianas */
+@media (min-width: 701px) and (max-width: 1100px) {
+  .sidebar {
+    width: 205px;
+    min-width: 205px;
+    padding-inline: 10px;
+  }
+
+  .app-main {
+    width: calc(100% - 205px);
+  }
+
+  .sidebar-link {
+    padding-inline: 10px;
+  }
+
+  .sidebar-link-label {
+    font-size: 12px;
+  }
+
+  .topbar {
+    padding-inline: 14px;
+  }
+
+  .filter-pill {
+    min-width: 108px;
+    max-width: 158px;
+  }
+
+  .panel {
+    padding: 12px;
+  }
+}
+
+/* Tablet angosta */
+@media (min-width: 521px) and (max-width: 700px) {
+  .sidebar-link-label,
+  .sidebar-link-mobile-label {
+    display: none;
+  }
+
+  .sidebar-link {
+    min-height: 46px;
+  }
+
+  .topbar {
+    padding: 10px 12px;
+  }
+
+  .app-content {
+    padding: 9px;
+  }
+
+  .filter-pill {
+    min-height: 38px;
+  }
+
+  .dashboard-insight-grid,
+  .dashboard-insight-grid.wide-left,
+  .dashboard-primary-grid,
+  .dashboard-secondary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Teléfonos comunes */
+@media (max-width: 520px) {
+  html,
+  body,
+  #root {
+    overflow-x: hidden;
+  }
+
+  body {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .app-layout {
+    min-height: 100dvh;
+  }
+
+  .app-main {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .topbar {
+    position: relative;
+    z-index: 40;
+    min-height: 0;
+    padding: 10px 8px;
+    gap: 9px;
+  }
+
+  .topbar-heading {
+    width: 100%;
+  }
+
+  .topbar h1 {
+    font-size: 16px;
+  }
+
+  .topbar p {
+    font-size: 10px;
+  }
+
+  .filter-bar {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .filter-popover-anchor {
+    position: static;
+    min-width: 0;
+  }
+
+  .filter-pill {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    height: 42px;
+    padding-inline: 9px;
+    border-radius: 10px;
+  }
+
+  .filter-pill-value {
+    font-size: 10px;
+  }
+
+  .filter-popover {
+    position: fixed;
+    z-index: 1300;
+    top: auto;
+    left: 8px;
+    right: 8px;
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+
+    width: auto;
+    max-width: none;
+    max-height: min(68dvh, 560px);
+    padding: 13px;
+
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+
+    border-radius: 15px;
+    box-shadow: 0 18px 46px rgba(25, 28, 34, 0.24);
+  }
+
+  .period-popover,
+  .product-popover {
+    width: auto;
+  }
+
+  .period-mode-tabs button {
+    min-height: 38px;
+    font-size: 10px;
+  }
+
+  .period-editor,
+  .period-range-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .period-range-editor .filter-apply-button {
+    grid-column: auto;
+  }
+
+  .period-editor select,
+  .period-editor input,
+  .period-range-editor input,
+  .product-search-box {
+    min-height: 44px;
+    height: 44px;
+    font-size: 16px;
+  }
+
+  .product-search-box input {
+    font-size: 16px;
+  }
+
+  .filter-apply-button {
+    width: 100%;
+    min-height: 44px;
+    font-size: 10px;
+  }
+
+  .filter-clear-button {
+    min-height: 36px;
+    padding: 0 8px;
+  }
+
+  .product-filter-chip {
+    min-height: 30px;
+  }
+
+  .product-filter-chip button {
+    width: 24px;
+    height: 24px;
+  }
+
+  .product-search-results {
+    max-height: 34dvh;
+  }
+
+  .product-search-result {
+    min-height: 48px;
+    padding: 9px;
+  }
+
+  .product-search-result strong {
+    font-size: 11px;
+  }
+
+  .product-search-result span,
+  .product-search-hint {
+    font-size: 10px;
+  }
+
+  .sidebar {
+    z-index: 1200;
+    height: calc(68px + env(safe-area-inset-bottom, 0px));
+    padding:
+      5px 4px
+      calc(5px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .sidebar-menu {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(50px, 1fr));
+    align-items: stretch;
+    justify-content: stretch;
+    gap: 2px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .sidebar-menu::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sidebar-link {
+    width: auto;
+    min-width: 50px;
+    min-height: 54px;
+    padding: 4px 2px;
+
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+
+    border-radius: 8px;
+  }
+
+  .sidebar-link svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+
+  .sidebar-link-label {
+    display: none !important;
+  }
+
+  .sidebar-link-mobile-label {
+    display: block !important;
+    max-width: 100%;
+
+    overflow: hidden;
+
+    font-size: 8px !important;
+    font-weight: 650 !important;
+    line-height: 1.05;
+
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app-content {
+    width: 100%;
+    min-width: 0;
+    padding: 8px;
+    padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .page {
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .panel {
+    width: 100%;
+    min-width: 0;
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .panel-header,
+  .module-header {
+    gap: 7px;
+    margin-bottom: 9px;
+  }
+
+  .panel h2,
+  .module-header h2 {
+    font-size: 12px;
+  }
+
+  .panel-eyebrow {
+    font-size: 8px;
+  }
+
+  .kpi-grid,
+  .module-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .summary-card {
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .summary-card span {
+    font-size: 8px;
+    line-height: 1.25;
+  }
+
+  .summary-card strong {
+    margin-top: 5px;
+    font-size: clamp(15px, 5vw, 20px);
+  }
+
+  .dashboard-definition-note {
+    padding: 9px 10px;
+    font-size: 8px;
+  }
+
+  .dashboard-primary-grid,
+  .dashboard-secondary-grid,
+  .dashboard-insight-grid,
+  .dashboard-insight-grid.wide-left,
+  .performance-grid,
+  .dashboard-performance-content {
+    grid-template-columns: 1fr;
+  }
+
+  .sales-product-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sales-product-summary-card {
+    padding: 10px;
+  }
+
+  .sales-product-summary-heading {
+    gap: 6px;
+  }
+
+  .sales-product-summary-amount {
+    font-size: 18px;
+  }
+
+  .mini-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .mini-metrics > div {
+    padding: 7px;
+  }
+
+  .mini-metrics strong {
+    font-size: 12px;
+  }
+
+  .quote-status-legend {
+    grid-template-columns: 1fr;
+  }
+
+  .sales-mix-chart {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .sales-mix-donut {
+    width: 132px;
+    height: 132px;
+  }
+
+  .store-ranking-heading {
+    align-items: flex-start;
+  }
+
+  .store-ranking-heading span {
+    max-width: 48%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .evolution-visual.advanced,
+  .advanced-trend-chart,
+  .product-opportunity-chart {
+    min-height: 0;
+  }
+
+  .advanced-trend-chart,
+  .product-opportunity-chart {
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  .advanced-trend-svg,
+  .product-opportunity-svg {
+    width: 100%;
+    min-width: 0 !important;
+    min-height: 0;
+    height: auto;
+  }
+
+  .chart-legend {
+    justify-content: flex-start;
+    gap: 8px;
+    padding-inline: 4px;
+  }
+
+  .advanced-chart-axis,
+  .advanced-chart-date,
+  .opportunity-axis-title,
+  .opportunity-product-label {
+    font-size: 8px;
+  }
+
+  .chart-help-text {
+    font-size: 8px;
+  }
+
+  .table-scroll {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 8px;
+  }
+
+  .analytics-table {
+    font-size: 9px;
+  }
+
+  .analytics-table th,
+  .analytics-table td {
+    padding: 8px;
+  }
+
+  .analytics-table th:first-child,
+  .analytics-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    box-shadow: 1px 0 0 #eceef0;
+  }
+
+  .analytics-table th:first-child {
+    z-index: 4;
+    background: #fafafb;
+  }
+
+  .analytics-table td:first-child {
+    background: #ffffff;
+  }
+
+  .analytics-table tbody tr:hover td:first-child {
+    background: #fffaf4;
+  }
+
+  .table-sort-button {
+    min-height: 40px;
+    padding: 8px;
+  }
+
+  .filter-context-note {
+    padding: 8px;
+    font-size: 8px;
+  }
+
+  .sale-matches-cell {
+    min-width: 185px;
+    max-width: 240px;
+  }
+
+  .sale-match-item {
+    gap: 6px;
+  }
+
+  .upload-area {
+    min-height: 220px;
+    padding: 16px 12px;
+  }
+
+  .upload-area button {
+    width: 100%;
+    min-height: 44px;
+    margin-top: 5px;
+  }
+
+  .upload-area span {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .module-state,
+  .compact-empty-state,
+  .empty-content {
+    min-height: 110px;
+    padding: 14px 10px;
+  }
+}
+
+/* Teléfonos compactos */
+@media (max-width: 360px) {
+  .filter-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .kpi-grid,
+  .module-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mini-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar-menu {
+    grid-template-columns: repeat(6, 54px);
+    justify-content: flex-start;
+  }
+
+  .sidebar-link {
+    min-width: 54px;
+  }
+
+  .filter-popover {
+    left: 6px;
+    right: 6px;
+    padding: 11px;
+  }
+}
+
+/* Teléfonos en horizontal */
+@media (max-height: 520px) and (orientation: landscape) {
+  .filter-popover {
+    max-height: calc(100dvh - 82px);
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .sidebar {
+    height: calc(62px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .sidebar-link {
+    min-height: 48px;
+  }
+
+  .app-content {
+    padding-bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+  }
+}
