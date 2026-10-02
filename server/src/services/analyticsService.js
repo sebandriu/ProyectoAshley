@@ -497,6 +497,32 @@ export async function getQuoteAnalytics(filters = {}) {
     ? " AND d.tipo_documento = 'OF'"
     : "WHERE d.tipo_documento = 'OF'";
 
+  const summaryValues = [...values];
+
+  const summaryResult = await pool.query(
+    `
+      SELECT
+        COUNT(*) AS total,
+        COUNT(*) FILTER (
+          WHERE d.estado_analitico = 'PENDIENTE'
+        ) AS pendientes,
+        COUNT(*) FILTER (
+          WHERE d.estado_analitico IN (
+            'CONVERTIDA COMPLETA',
+            'CONVERSION PARCIAL'
+          )
+        ) AS con_venta,
+        COUNT(*) FILTER (
+          WHERE d.estado_analitico = 'CERRADA SIN VENTA'
+        ) AS sin_venta,
+        COALESCE(SUM(d.total_bruto), 0) AS monto
+      FROM documentos d
+      ${where}${extra}
+    `,
+    summaryValues
+  );
+
+  const summaryRow = summaryResult.rows[0];
   const productCodes = applied.productos ?? [];
   let matchingSelect = `
     '[]'::jsonb AS productos_coincidentes,
@@ -609,6 +635,13 @@ export async function getQuoteAnalytics(filters = {}) {
 
   return {
     filtros: applied,
+    resumen: {
+      total: integer(summaryRow.total),
+      pendientes: integer(summaryRow.pendientes),
+      conVenta: integer(summaryRow.con_venta),
+      sinVenta: integer(summaryRow.sin_venta),
+      monto: numeric(summaryRow.monto),
+    },
     orden: {
       campo: String(filters.orderBy ?? "fecha"),
       direccion: orderDir.toLowerCase(),
