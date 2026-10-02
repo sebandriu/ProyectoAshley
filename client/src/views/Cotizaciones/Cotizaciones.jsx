@@ -9,16 +9,105 @@ const currency = new Intl.NumberFormat("es-CL", {
   maximumFractionDigits: 0,
 });
 
+const number = new Intl.NumberFormat("es-CL", {
+  maximumFractionDigits: 2,
+});
+
 function formatDate(value) {
   const match = String(value ?? "").match(/^(\d{4})-(\d{2})-(\d{2})/);
   return match ? `${match[3]}/${match[2]}/${match[1]}` : "—";
+}
+
+function parseList(value) {
+  return String(value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function SortableHeader({
+  label,
+  sortKey,
+  sort,
+  onSort,
+  numeric = false,
+  defaultDirection,
+}) {
+  const active = sort.key === sortKey;
+  const symbol = active
+    ? sort.direction === "asc"
+      ? "↑"
+      : "↓"
+    : "↕";
+
+  return (
+    <th
+      className={numeric ? "numeric sortable-th" : "sortable-th"}
+      aria-sort={
+        active
+          ? sort.direction === "asc"
+            ? "ascending"
+            : "descending"
+          : "none"
+      }
+    >
+      <button
+        type="button"
+        className="table-sort-button"
+        onClick={() =>
+          onSort(
+            sortKey,
+            defaultDirection ?? (numeric ? "desc" : "asc")
+          )
+        }
+      >
+        <span>{label}</span>
+        <span className={active ? "sort-symbol active" : "sort-symbol"}>
+          {symbol}
+        </span>
+      </button>
+    </th>
+  );
+}
+
+function formatMatches(matches) {
+  if (!Array.isArray(matches) || matches.length === 0) {
+    return "—";
+  }
+
+  return matches
+    .map(
+      (item) =>
+        `${item.codigo} ×${number.format(Number(item.cantidad || 0))}`
+    )
+    .join(" · ");
 }
 
 function Cotizaciones() {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState("loading");
   const [data, setData] = useState([]);
+  const [summary, setSummary] = useState({
+    total: 0,
+    pendientes: 0,
+    conVenta: 0,
+    sinVenta: 0,
+    monto: 0,
+  });
   const [error, setError] = useState("");
+  const [sort, setSort] = useState({
+    key: "fecha",
+    direction: "desc",
+  });
+
+  const selectedProducts = useMemo(
+    () =>
+      parseList(
+        searchParams.get("productos") ||
+          searchParams.get("producto")
+      ),
+    [searchParams]
+  );
 
   const filters = useMemo(() => {
     const legacyDate = searchParams.get("fecha") || undefined;
@@ -35,8 +124,10 @@ function Cotizaciones() {
         searchParams.get("productos") ||
         searchParams.get("producto") ||
         undefined,
+      orderBy: sort.key,
+      orderDir: sort.direction,
     };
-  }, [searchParams]);
+  }, [searchParams, sort]);
 
   useEffect(() => {
     let active = true;
@@ -47,6 +138,15 @@ function Cotizaciones() {
       .then((response) => {
         if (!active) return;
         setData(response.cotizaciones ?? []);
+        setSummary(
+          response.resumen ?? {
+            total: 0,
+            pendientes: 0,
+            conVenta: 0,
+            sinVenta: 0,
+            monto: 0,
+          }
+        );
         setStatus("success");
       })
       .catch((requestError) => {
@@ -60,28 +160,24 @@ function Cotizaciones() {
     };
   }, [filters]);
 
-  const summary = useMemo(() => {
-    return data.reduce(
-      (acc, quote) => {
-        acc.total += 1;
-        acc.monto += Number(quote.totalBruto || 0);
+  function handleSort(key, defaultDirection) {
+    setSort((current) => {
+      if (current.key === key) {
+        return {
+          key,
+          direction:
+            current.direction === "asc" ? "desc" : "asc",
+        };
+      }
 
-        if (quote.estadoAnalitico === "PENDIENTE") acc.pendientes += 1;
-        if (
-          quote.estadoAnalitico === "CONVERTIDA COMPLETA" ||
-          quote.estadoAnalitico === "CONVERSION PARCIAL"
-        ) {
-          acc.conVenta += 1;
-        }
-        if (quote.estadoAnalitico === "CERRADA SIN VENTA") {
-          acc.sinVenta += 1;
-        }
+      return {
+        key,
+        direction: defaultDirection,
+      };
+    });
+  }
 
-        return acc;
-      },
-      { total: 0, pendientes: 0, conVenta: 0, sinVenta: 0, monto: 0 }
-    );
-  }, [data]);
+  const hasProductFilter = selectedProducts.length > 0;
 
   return (
     <div className="page">
@@ -100,7 +196,7 @@ function Cotizaciones() {
         </article>
         <article className="summary-card">
           <span>Monto cotizado</span>
-          <strong>{currency.format(summary.monto)}</strong>
+          <strong>{currency.format(Number(summary.monto || 0))}</strong>
         </article>
       </section>
 
@@ -110,8 +206,21 @@ function Cotizaciones() {
             <span className="panel-eyebrow">Detalle comercial</span>
             <h2>Cotizaciones</h2>
           </div>
-          <span className="module-count">{data.length} documentos</span>
+          <span className="module-count">
+            {data.length} mostradas · {summary.total} encontradas
+          </span>
         </header>
+
+        {hasProductFilter && (
+          <div className="filter-context-note">
+            {selectedProducts.length > 1
+              ? "Con varios productos seleccionados, una OF aparece si contiene al menos uno de esos códigos. "
+              : "La OF aparece cuando contiene el producto seleccionado. "}
+            <strong>Coincidencias</strong> muestra exactamente cuáles de los
+            códigos filtrados están presentes y cuántas unidades se cotizaron.
+            El total bruto sigue correspondiendo a la OF completa.
+          </div>
+        )}
 
         {status === "loading" && (
           <div className="module-state">Cargando cotizaciones...</div>
@@ -129,17 +238,80 @@ function Cotizaciones() {
 
         {status === "success" && data.length > 0 && (
           <div className="table-scroll">
-            <table className="analytics-table">
+            <table className="analytics-table quotes-table">
               <thead>
                 <tr>
-                  <th>Fecha</th>
-                  <th>N° OF</th>
-                  <th>Estado</th>
-                  <th>Tienda</th>
-                  <th>Vendedor</th>
-                  <th>Productos</th>
-                  <th>Unidades</th>
-                  <th className="numeric">Total bruto</th>
+                  <SortableHeader
+                    label="Fecha"
+                    sortKey="fecha"
+                    sort={sort}
+                    onSort={handleSort}
+                    defaultDirection="desc"
+                  />
+                  <SortableHeader
+                    label="N° OF"
+                    sortKey="numero"
+                    sort={sort}
+                    onSort={handleSort}
+                    numeric
+                  />
+                  <SortableHeader
+                    label="Estado"
+                    sortKey="estado"
+                    sort={sort}
+                    onSort={handleSort}
+                  />
+                  <SortableHeader
+                    label="Tienda"
+                    sortKey="tienda"
+                    sort={sort}
+                    onSort={handleSort}
+                  />
+                  <SortableHeader
+                    label="Vendedor"
+                    sortKey="vendedor"
+                    sort={sort}
+                    onSort={handleSort}
+                  />
+                  <SortableHeader
+                    label="Productos OF"
+                    sortKey="productos"
+                    sort={sort}
+                    onSort={handleSort}
+                    numeric
+                  />
+                  <SortableHeader
+                    label="Unidades OF"
+                    sortKey="unidades"
+                    sort={sort}
+                    onSort={handleSort}
+                    numeric
+                  />
+                  {hasProductFilter && (
+                    <>
+                      <SortableHeader
+                        label="Coincidencias"
+                        sortKey="coincidencias"
+                        sort={sort}
+                        onSort={handleSort}
+                        numeric
+                      />
+                      <SortableHeader
+                        label="Unid. coinc."
+                        sortKey="unidadesCoincidentes"
+                        sort={sort}
+                        onSort={handleSort}
+                        numeric
+                      />
+                    </>
+                  )}
+                  <SortableHeader
+                    label="Total bruto"
+                    sortKey="totalBruto"
+                    sort={sort}
+                    onSort={handleSort}
+                    numeric
+                  />
                 </tr>
               </thead>
               <tbody>
@@ -154,8 +326,22 @@ function Cotizaciones() {
                     </td>
                     <td>{quote.tienda ?? "—"}</td>
                     <td>{quote.vendedor ?? "—"}</td>
-                    <td>{quote.lineasProducto}</td>
-                    <td>{quote.unidadesProducto}</td>
+                    <td className="numeric">{quote.lineasProducto}</td>
+                    <td className="numeric">
+                      {number.format(Number(quote.unidadesProducto || 0))}
+                    </td>
+                    {hasProductFilter && (
+                      <>
+                        <td className="quote-matches">
+                          {formatMatches(quote.productosCoincidentes)}
+                        </td>
+                        <td className="numeric">
+                          {number.format(
+                            Number(quote.unidadesCoincidentes || 0)
+                          )}
+                        </td>
+                      </>
+                    )}
                     <td className="numeric">
                       {currency.format(Number(quote.totalBruto || 0))}
                     </td>
