@@ -368,7 +368,35 @@ async function loadRawRows(client, importacionId) {
   }));
 }
 
-async function upsertDocument(client, importacionId, document) {
+const DOCUMENT_BATCH_SIZE = 1000;
+const LINE_BATCH_SIZE = 1000;
+const RELATION_BATCH_SIZE = 1000;
+const DESTINATION_LOOKUP_BATCH_SIZE = 5000;
+
+async function upsertDocumentsBatch(
+  client,
+  importacionId,
+  documents
+) {
+  if (documents.length === 0) return [];
+
+  const payload = documents.map((document) => ({
+    tipo_documento: document.tipoDocumento,
+    docentry_sap: document.docentrySap,
+    numero_documento: document.numeroDocumento,
+    folio: document.folio,
+    fecha: document.fecha,
+    estado_sap: document.estadoSap,
+    cancelada_sap: document.canceladaSap,
+    estado_analitico: document.estadoAnalitico,
+    tienda: document.tienda,
+    vendedor: document.vendedor,
+    total_neto: document.totalNeto,
+    total_bruto: document.totalBruto,
+    contribucion: document.contribucion,
+    margen: document.margen,
+  }));
+
   const result = await client.query(
     `INSERT INTO documentos (
         importacion_id,
@@ -387,10 +415,37 @@ async function upsertDocument(client, importacionId, document) {
         contribucion,
         margen
      )
-     VALUES (
-        $1, $2, $3, $4, $5,
-        $6, $7, $8, $9, $10,
-        $11, $12, $13, $14, $15
+     SELECT
+        $1,
+        x.tipo_documento,
+        x.docentry_sap,
+        x.numero_documento,
+        x.folio,
+        x.fecha,
+        x.estado_sap,
+        x.cancelada_sap,
+        x.estado_analitico,
+        x.tienda,
+        x.vendedor,
+        x.total_neto,
+        x.total_bruto,
+        x.contribucion,
+        x.margen
+     FROM jsonb_to_recordset($2::jsonb) AS x(
+        tipo_documento TEXT,
+        docentry_sap BIGINT,
+        numero_documento BIGINT,
+        folio BIGINT,
+        fecha DATE,
+        estado_sap TEXT,
+        cancelada_sap TEXT,
+        estado_analitico TEXT,
+        tienda TEXT,
+        vendedor TEXT,
+        total_neto NUMERIC,
+        total_bruto NUMERIC,
+        contribucion NUMERIC,
+        margen NUMERIC
      )
      ON CONFLICT (tipo_documento, docentry_sap)
      DO UPDATE SET
@@ -408,30 +463,41 @@ async function upsertDocument(client, importacionId, document) {
         contribucion = EXCLUDED.contribucion,
         margen = EXCLUDED.margen,
         actualizado_en = NOW()
-     RETURNING id`,
-    [
-      importacionId,
-      document.tipoDocumento,
-      document.docentrySap,
-      document.numeroDocumento,
-      document.folio,
-      document.fecha,
-      document.estadoSap,
-      document.canceladaSap,
-      document.estadoAnalitico,
-      document.tienda,
-      document.vendedor,
-      document.totalNeto,
-      document.totalBruto,
-      document.contribucion,
-      document.margen,
-    ]
+     RETURNING id, tipo_documento, docentry_sap`,
+    [importacionId, JSON.stringify(payload)]
   );
 
-  return result.rows[0].id;
+  return result.rows;
 }
 
-async function upsertLine(client, documentId, line) {
+async function upsertLinesBatch(client, lines) {
+  if (lines.length === 0) return;
+
+  const resultPayload = lines.map(({ documentId, line }) => ({
+    documento_id: documentId,
+    linea_sap: line.lineaSap,
+    codigo_item: line.codigoItem,
+    descripcion: line.descripcion,
+    cantidad: line.cantidad,
+    cantidad_abierta: line.cantidadAbierta,
+    precio_unitario: line.precioUnitario,
+    precio_sin_iva: line.precioSinIva,
+    descuento_pct: line.descuentoPct,
+    total_linea: line.totalBruto,
+    total_neto: line.totalNeto,
+    total_bruto: line.totalBruto,
+    costo_unitario: line.costoUnitario,
+    costo_total: line.costoTotal,
+    contribucion: line.contribucion,
+    margen: line.margen,
+    tipo_linea: line.tipoLinea,
+    target_type: line.targetType,
+    target_entry: line.targetEntry,
+    base_type: line.baseType,
+    base_entry: line.baseEntry,
+    base_line: line.baseLine,
+  }));
+
   await client.query(
     `INSERT INTO detalle_documento (
         documento_id,
@@ -457,11 +523,52 @@ async function upsertLine(client, documentId, line) {
         base_entry,
         base_line
      )
-     VALUES (
-        $1, $2, $3, $4, $5, $6,
-        $7, $8, $9, $10, $11, $12,
-        $13, $14, $15, $16, $17, $18,
-        $19, $20, $21, $22
+     SELECT
+        x.documento_id,
+        x.linea_sap,
+        x.codigo_item,
+        x.descripcion,
+        x.cantidad,
+        x.cantidad_abierta,
+        x.precio_unitario,
+        x.precio_sin_iva,
+        x.descuento_pct,
+        x.total_linea,
+        x.total_neto,
+        x.total_bruto,
+        x.costo_unitario,
+        x.costo_total,
+        x.contribucion,
+        x.margen,
+        x.tipo_linea,
+        x.target_type,
+        x.target_entry,
+        x.base_type,
+        x.base_entry,
+        x.base_line
+     FROM jsonb_to_recordset($1::jsonb) AS x(
+        documento_id BIGINT,
+        linea_sap INTEGER,
+        codigo_item TEXT,
+        descripcion TEXT,
+        cantidad NUMERIC,
+        cantidad_abierta NUMERIC,
+        precio_unitario NUMERIC,
+        precio_sin_iva NUMERIC,
+        descuento_pct NUMERIC,
+        total_linea NUMERIC,
+        total_neto NUMERIC,
+        total_bruto NUMERIC,
+        costo_unitario NUMERIC,
+        costo_total NUMERIC,
+        contribucion NUMERIC,
+        margen NUMERIC,
+        tipo_linea TEXT,
+        target_type INTEGER,
+        target_entry BIGINT,
+        base_type INTEGER,
+        base_entry BIGINT,
+        base_line INTEGER
      )
      ON CONFLICT (documento_id, linea_sap)
      DO UPDATE SET
@@ -485,80 +592,68 @@ async function upsertLine(client, documentId, line) {
         base_type = EXCLUDED.base_type,
         base_entry = EXCLUDED.base_entry,
         base_line = EXCLUDED.base_line`,
-    [
-      documentId,
-      line.lineaSap,
-      line.codigoItem,
-      line.descripcion,
-      line.cantidad,
-      line.cantidadAbierta,
-      line.precioUnitario,
-      line.precioSinIva,
-      line.descuentoPct,
-      line.totalBruto,
-      line.totalNeto,
-      line.totalBruto,
-      line.costoUnitario,
-      line.costoTotal,
-      line.contribucion,
-      line.margen,
-      line.tipoLinea,
-      line.targetType,
-      line.targetEntry,
-      line.baseType,
-      line.baseEntry,
-      line.baseLine,
-    ]
+    [JSON.stringify(resultPayload)]
   );
 }
 
 async function loadDestinationDocuments(client, targetEntries) {
-  if (targetEntries.length === 0) {
-    return new Map();
-  }
-
-  const result = await client.query(
-    `SELECT
-        id,
-        tipo_documento,
-        docentry_sap,
-        numero_documento,
-        folio
-     FROM documentos
-     WHERE tipo_documento IN ('FR', 'FD')
-       AND docentry_sap = ANY($1::bigint[])`,
-    [targetEntries]
-  );
-
   const destinations = new Map();
 
-  for (const row of result.rows) {
-    destinations.set(String(row.docentry_sap), row);
+  for (
+    let offset = 0;
+    offset < targetEntries.length;
+    offset += DESTINATION_LOOKUP_BATCH_SIZE
+  ) {
+    const batch = targetEntries.slice(
+      offset,
+      offset + DESTINATION_LOOKUP_BATCH_SIZE
+    );
+
+    const result = await client.query(
+      `SELECT
+          id,
+          tipo_documento,
+          docentry_sap,
+          numero_documento,
+          folio
+       FROM documentos
+       WHERE tipo_documento IN ('FR', 'FD')
+         AND docentry_sap = ANY($1::bigint[])`,
+      [batch]
+    );
+
+    for (const row of result.rows) {
+      destinations.set(String(row.docentry_sap), row);
+    }
   }
 
   return destinations;
 }
 
-async function upsertRelation(
-  client,
-  documentId,
-  line,
-  destination
-) {
-  const tipoVenta =
-    line.tipoVentaDestino ??
-    destination?.tipo_documento ??
-    null;
+async function upsertRelationsBatch(client, relations) {
+  if (relations.length === 0) return;
 
-  const numeroDestino =
-    line.numeroVentaDestino ??
-    destination?.numero_documento ??
-    null;
-
-  const folioDestino =
-    line.folioVentaDestino ??
-    destination?.folio ??
-    null;
+  const payload = relations.map(
+    ({ documentId, line, destination }) => ({
+      documento_origen_id: documentId,
+      linea_origen: line.lineaSap,
+      target_type: line.targetType,
+      target_docentry_sap: line.targetEntry,
+      documento_destino_id: destination?.id ?? null,
+      tipo_venta:
+        line.tipoVentaDestino ??
+        destination?.tipo_documento ??
+        null,
+      numero_documento_destino:
+        line.numeroVentaDestino ??
+        destination?.numero_documento ??
+        null,
+      folio_destino:
+        line.folioVentaDestino ??
+        destination?.folio ??
+        null,
+    })
+  );
 
   await client.query(
     `INSERT INTO relaciones_documento (
@@ -571,7 +666,25 @@ async function upsertRelation(
         numero_documento_destino,
         folio_destino
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     SELECT
+        x.documento_origen_id,
+        x.linea_origen,
+        x.target_type,
+        x.target_docentry_sap,
+        x.documento_destino_id,
+        x.tipo_venta,
+        x.numero_documento_destino,
+        x.folio_destino
+     FROM jsonb_to_recordset($1::jsonb) AS x(
+        documento_origen_id BIGINT,
+        linea_origen INTEGER,
+        target_type INTEGER,
+        target_docentry_sap BIGINT,
+        documento_destino_id BIGINT,
+        tipo_venta TEXT,
+        numero_documento_destino BIGINT,
+        folio_destino BIGINT
+     )
      ON CONFLICT (
         documento_origen_id,
         linea_origen,
@@ -583,16 +696,23 @@ async function upsertRelation(
         tipo_venta = EXCLUDED.tipo_venta,
         numero_documento_destino = EXCLUDED.numero_documento_destino,
         folio_destino = EXCLUDED.folio_destino`,
-    [
-      documentId,
-      line.lineaSap,
-      line.targetType,
-      line.targetEntry,
-      destination?.id ?? null,
-      tipoVenta,
-      numeroDestino,
-      folioDestino,
-    ]
+    [JSON.stringify(payload)]
+  );
+}
+
+async function relinkExistingRelations(client) {
+  await client.query(
+    `UPDATE relaciones_documento AS r
+     SET
+       documento_destino_id = d.id,
+       tipo_venta = COALESCE(r.tipo_venta, d.tipo_documento),
+       numero_documento_destino =
+         COALESCE(r.numero_documento_destino, d.numero_documento),
+       folio_destino = COALESCE(r.folio_destino, d.folio)
+     FROM documentos AS d
+     WHERE d.tipo_documento IN ('FR', 'FD')
+       AND d.docentry_sap = r.target_docentry_sap
+       AND r.documento_destino_id IS DISTINCT FROM d.id`
   );
 }
 
@@ -609,6 +729,7 @@ export async function processConsolidatedImport(
   }
 
   const documents = groupDocuments(rows);
+  const documentList = [...documents.values()];
   const documentIds = new Map();
 
   const summary = {
@@ -624,23 +745,69 @@ export async function processConsolidatedImport(
     relaciones: 0,
   };
 
-  for (const document of documents.values()) {
-    const documentId = await upsertDocument(
-      client,
-      importacionId,
-      document
-    );
-
-    documentIds.set(document.key, documentId);
+  for (const document of documentList) {
     summary.documentos[document.tipoDocumento] += 1;
 
     if (document.estadoAnalitico) {
       summary.estadosOF[document.estadoAnalitico] =
         (summary.estadosOF[document.estadoAnalitico] ?? 0) + 1;
     }
+  }
+
+  for (
+    let offset = 0;
+    offset < documentList.length;
+    offset += DOCUMENT_BATCH_SIZE
+  ) {
+    const batch = documentList.slice(
+      offset,
+      offset + DOCUMENT_BATCH_SIZE
+    );
+
+    const upserted = await upsertDocumentsBatch(
+      client,
+      importacionId,
+      batch
+    );
+
+    for (const row of upserted) {
+      documentIds.set(
+        `${row.tipo_documento}:${row.docentry_sap}`,
+        row.id
+      );
+    }
+
+    const processed = Math.min(
+      offset + batch.length,
+      documentList.length
+    );
+
+    if (
+      processed === documentList.length ||
+      processed % 10000 === 0
+    ) {
+      console.log(
+        `[Importación ${importacionId}] Documentos ETL: ${processed}/${documentList.length}`
+      );
+    }
+  }
+
+  let lineBatch = [];
+
+  for (const document of documentList) {
+    const documentId = documentIds.get(document.key);
+
+    if (!documentId) {
+      throw new Error(
+        `No fue posible resolver el documento ${document.key} durante el ETL.`
+      );
+    }
 
     for (const line of document.lines) {
-      await upsertLine(client, documentId, line);
+      lineBatch.push({
+        documentId,
+        line,
+      });
 
       summary.lineas += 1;
 
@@ -649,15 +816,26 @@ export async function processConsolidatedImport(
       } else {
         summary.productos += 1;
       }
+
+      if (lineBatch.length >= LINE_BATCH_SIZE) {
+        await upsertLinesBatch(client, lineBatch);
+        lineBatch = [];
+      }
     }
   }
 
-  const offerRelations = [];
+  if (lineBatch.length > 0) {
+    await upsertLinesBatch(client, lineBatch);
+  }
 
-  for (const document of documents.values()) {
+  console.log(
+    `[Importación ${importacionId}] Líneas ETL: ${summary.lineas}`
+  );
+
+  const targetEntrySet = new Set();
+
+  for (const document of documentList) {
     if (document.tipoDocumento !== "OF") continue;
-
-    const documentId = documentIds.get(document.key);
 
     for (const line of document.lines) {
       if (
@@ -665,39 +843,56 @@ export async function processConsolidatedImport(
         line.targetEntry !== null &&
         line.targetEntry > 0
       ) {
-        offerRelations.push({
-          documentId,
-          line,
-        });
+        targetEntrySet.add(line.targetEntry);
       }
     }
   }
 
-  const targetEntries = [
-    ...new Set(
-      offerRelations.map(({ line }) => line.targetEntry)
-    ),
-  ];
-
   const destinations = await loadDestinationDocuments(
     client,
-    targetEntries
+    [...targetEntrySet]
   );
 
-  for (const relation of offerRelations) {
-    const destination = destinations.get(
-      String(relation.line.targetEntry)
-    );
+  let relationBatch = [];
 
-    await upsertRelation(
-      client,
-      relation.documentId,
-      relation.line,
-      destination
-    );
+  for (const document of documentList) {
+    if (document.tipoDocumento !== "OF") continue;
 
-    summary.relaciones += 1;
+    const documentId = documentIds.get(document.key);
+
+    for (const line of document.lines) {
+      if (
+        line.targetType !== 13 ||
+        line.targetEntry === null ||
+        line.targetEntry <= 0
+      ) {
+        continue;
+      }
+
+      relationBatch.push({
+        documentId,
+        line,
+        destination: destinations.get(String(line.targetEntry)),
+      });
+
+      summary.relaciones += 1;
+
+      if (relationBatch.length >= RELATION_BATCH_SIZE) {
+        await upsertRelationsBatch(client, relationBatch);
+        relationBatch = [];
+      }
+    }
   }
+
+  if (relationBatch.length > 0) {
+    await upsertRelationsBatch(client, relationBatch);
+  }
+
+  await relinkExistingRelations(client);
+
+  console.log(
+    `[Importación ${importacionId}] Relaciones ETL: ${summary.relaciones}`
+  );
 
   return summary;
 }
