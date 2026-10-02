@@ -25,6 +25,51 @@ function parseList(value) {
     .filter(Boolean);
 }
 
+function SortableHeader({
+  label,
+  sortKey,
+  sort,
+  onSort,
+  numeric = false,
+  defaultDirection,
+}) {
+  const active = sort.key === sortKey;
+  const symbol = active
+    ? sort.direction === "asc"
+      ? "↑"
+      : "↓"
+    : "↕";
+
+  return (
+    <th
+      className={numeric ? "numeric sortable-th" : "sortable-th"}
+      aria-sort={
+        active
+          ? sort.direction === "asc"
+            ? "ascending"
+            : "descending"
+          : "none"
+      }
+    >
+      <button
+        type="button"
+        className="table-sort-button"
+        onClick={() =>
+          onSort(
+            sortKey,
+            defaultDirection ?? (numeric ? "desc" : "asc")
+          )
+        }
+      >
+        <span>{label}</span>
+        <span className={active ? "sort-symbol active" : "sort-symbol"}>
+          {symbol}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 function SaleMatches({ matches }) {
   if (!Array.isArray(matches) || matches.length === 0) {
     return <span>—</span>;
@@ -69,6 +114,10 @@ function Ventas() {
     montoEsFiltrado: false,
   });
   const [error, setError] = useState("");
+  const [sort, setSort] = useState({
+    key: "fecha",
+    direction: "desc",
+  });
 
   const selectedProducts = useMemo(
     () =>
@@ -94,8 +143,10 @@ function Ventas() {
         searchParams.get("productos") ||
         searchParams.get("producto") ||
         undefined,
+      orderBy: sort.key,
+      orderDir: sort.direction,
     };
-  }, [searchParams]);
+  }, [searchParams, sort]);
 
   useEffect(() => {
     let active = true;
@@ -157,6 +208,23 @@ function Ventas() {
       );
     });
   }, [productSummary, selectedProducts]);
+
+  function handleSort(key, defaultDirection) {
+    setSort((current) => {
+      if (current.key === key) {
+        return {
+          key,
+          direction:
+            current.direction === "asc" ? "desc" : "asc",
+        };
+      }
+
+      return {
+        key,
+        direction: defaultDirection,
+      };
+    });
+  }
 
   return (
     <div className="page">
@@ -288,25 +356,92 @@ function Ventas() {
             >
               <thead>
                 <tr>
-                  <th>Fecha</th>
-                  <th>Tipo</th>
-                  <th>N° Documento</th>
-                  <th>Folio</th>
-                  <th>Estado</th>
-                  <th>Tienda</th>
-                  <th>Vendedor</th>
+                  <SortableHeader
+                    label="Fecha"
+                    sortKey="fecha"
+                    sort={sort}
+                    onSort={handleSort}
+                    defaultDirection="desc"
+                  />
+                  <SortableHeader
+                    label="Tipo"
+                    sortKey="tipo"
+                    sort={sort}
+                    onSort={handleSort}
+                  />
+                  <SortableHeader
+                    label="N° Documento"
+                    sortKey="numero"
+                    sort={sort}
+                    onSort={handleSort}
+                    numeric
+                  />
+                  <SortableHeader
+                    label="Folio"
+                    sortKey="folio"
+                    sort={sort}
+                    onSort={handleSort}
+                    numeric
+                  />
+                  <SortableHeader
+                    label="Estado"
+                    sortKey="estado"
+                    sort={sort}
+                    onSort={handleSort}
+                  />
+                  <SortableHeader
+                    label="Tienda"
+                    sortKey="tienda"
+                    sort={sort}
+                    onSort={handleSort}
+                  />
+                  <SortableHeader
+                    label="Vendedor"
+                    sortKey="vendedor"
+                    sort={sort}
+                    onSort={handleSort}
+                  />
+                  <SortableHeader
+                    label="Productos"
+                    sortKey="productos"
+                    sort={sort}
+                    onSort={handleSort}
+                    numeric
+                  />
+                  <SortableHeader
+                    label="Unidades"
+                    sortKey="unidades"
+                    sort={sort}
+                    onSort={handleSort}
+                    numeric
+                  />
 
                   {hasProductFilter ? (
                     <>
                       <th>Detalle por código</th>
-                      <th className="numeric">Monto seleccionados</th>
-                      <th className="numeric">Total documento</th>
+                      <SortableHeader
+                        label="Monto seleccionados"
+                        sortKey="montoSeleccionado"
+                        sort={sort}
+                        onSort={handleSort}
+                        numeric
+                      />
+                      <SortableHeader
+                        label="Total documento"
+                        sortKey="totalBruto"
+                        sort={sort}
+                        onSort={handleSort}
+                        numeric
+                      />
                     </>
                   ) : (
-                    <>
-                      <th className="numeric">Unidades</th>
-                      <th className="numeric">Total bruto</th>
-                    </>
+                    <SortableHeader
+                      label="Total bruto"
+                      sortKey="totalBruto"
+                      sort={sort}
+                      onSort={handleSort}
+                      numeric
+                    />
                   )}
                 </tr>
               </thead>
@@ -329,6 +464,14 @@ function Ventas() {
                     </td>
                     <td>{sale.tienda ?? "—"}</td>
                     <td>{sale.vendedor ?? "—"}</td>
+                    <td className="numeric">
+                      {sale.productosDistintos}
+                    </td>
+                    <td className="numeric">
+                      {number.format(
+                        Number(sale.unidadesProducto || 0)
+                      )}
+                    </td>
 
                     {hasProductFilter ? (
                       <>
@@ -349,18 +492,11 @@ function Ventas() {
                         </td>
                       </>
                     ) : (
-                      <>
-                        <td className="numeric">
-                          {number.format(
-                            Number(sale.unidadesProducto || 0)
-                          )}
-                        </td>
-                        <td className="numeric">
-                          {currency.format(
-                            Number(sale.totalBruto || 0)
-                          )}
-                        </td>
-                      </>
+                      <td className="numeric">
+                        {currency.format(
+                          Number(sale.totalBruto || 0)
+                        )}
+                      </td>
                     )}
                   </tr>
                 ))}
