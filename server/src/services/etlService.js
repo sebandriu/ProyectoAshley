@@ -398,6 +398,7 @@ const DOCUMENT_BATCH_SIZE = 1000;
 const LINE_BATCH_SIZE = 1000;
 const RELATION_BATCH_SIZE = 1000;
 const DESTINATION_LOOKUP_BATCH_SIZE = 5000;
+const DOCUMENT_RESET_BATCH_SIZE = 5000;
 
 async function upsertDocumentsBatch(
   client,
@@ -494,6 +495,33 @@ async function upsertDocumentsBatch(
   );
 
   return result.rows;
+}
+
+async function resetImportedDocumentChildren(client, documentIds) {
+  const uniqueIds = [...new Set(documentIds)].filter(Boolean);
+
+  for (
+    let offset = 0;
+    offset < uniqueIds.length;
+    offset += DOCUMENT_RESET_BATCH_SIZE
+  ) {
+    const batch = uniqueIds.slice(
+      offset,
+      offset + DOCUMENT_RESET_BATCH_SIZE
+    );
+
+    await client.query(
+      `DELETE FROM relaciones_documento
+       WHERE documento_origen_id = ANY($1::bigint[])`,
+      [batch]
+    );
+
+    await client.query(
+      `DELETE FROM detalle_documento
+       WHERE documento_id = ANY($1::bigint[])`,
+      [batch]
+    );
+  }
 }
 
 async function upsertLinesBatch(client, lines) {
@@ -818,6 +846,15 @@ export async function processConsolidatedImport(
       );
     }
   }
+
+  await resetImportedDocumentChildren(
+    client,
+    [...documentIds.values()]
+  );
+
+  console.log(
+    `[Importación ${importacionId}] Detalle anterior sincronizado para ${documentIds.size} documentos`
+  );
 
   let lineBatch = [];
 
