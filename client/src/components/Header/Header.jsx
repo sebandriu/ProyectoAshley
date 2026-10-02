@@ -4,17 +4,6 @@ import { useLocation, useSearchParams } from "react-router-dom";
 import FilterBar from "../FilterBar/FilterBar";
 import { getAnalyticsFilters } from "../../services/api";
 
-function formatDateLabel(value) {
-  if (!value) return null;
-
-  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-
-  if (!match) return value;
-
-  const [, year, month, day] = match;
-  return `${day}/${month}/${year}`;
-}
-
 function filtersForPath(pathname) {
   if (pathname === "/") return ["periodo", "tienda"];
   if (pathname === "/productos") return ["periodo", "tienda", "producto"];
@@ -24,6 +13,17 @@ function filtersForPath(pathname) {
   }
 
   return [];
+}
+
+function parseProducts(value) {
+  return [
+    ...new Set(
+      String(value ?? "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    ),
+  ];
 }
 
 function Header() {
@@ -59,31 +59,12 @@ function Header() {
   const options = useMemo(() => {
     if (!filterData) {
       return {
-        periodo: [],
         tienda: [],
         vendedor: [],
-        producto: [],
       };
     }
 
-    const from = formatDateLabel(filterData.periodoDisponible?.desde);
-    const to = formatDateLabel(filterData.periodoDisponible?.hasta);
-
-    const rangeLabel =
-      from && to
-        ? from === to
-          ? `Todo: ${from}`
-          : `Todo: ${from} - ${to}`
-        : "Todo el período";
-
     return {
-      periodo: [
-        { value: "", label: rangeLabel },
-        ...(filterData.fechas ?? []).map((date) => ({
-          value: date,
-          label: formatDateLabel(date),
-        })),
-      ],
       tienda: [
         { value: "", label: "Todas las tiendas" },
         ...(filterData.tiendas ?? []).map((store) => ({
@@ -98,34 +79,64 @@ function Header() {
           label: seller,
         })),
       ],
-      producto: [
-        { value: "", label: "Todos los productos" },
-        ...(filterData.productos ?? []).map((product) => ({
-          value: product.codigo,
-          label:
-            product.descripcion && product.descripcion !== product.codigo
-              ? `${product.codigo} · ${product.descripcion}`
-              : product.codigo,
-        })),
-      ],
     };
   }, [filterData]);
 
+  const legacyDate = searchParams.get("fecha") ?? "";
+  const legacyProduct = searchParams.get("producto") ?? "";
+
   const values = {
-    periodo: searchParams.get("fecha") ?? "",
+    periodo: {
+      desde: searchParams.get("desde") ?? legacyDate,
+      hasta: searchParams.get("hasta") ?? legacyDate,
+    },
     tienda: searchParams.get("tienda") ?? "",
     vendedor: searchParams.get("vendedor") ?? "",
-    producto: searchParams.get("producto") ?? "",
+    producto: parseProducts(
+      searchParams.get("productos") ?? legacyProduct
+    ),
   };
 
   function handleChange(key, value) {
     const nextParams = new URLSearchParams(searchParams);
-    const paramName = key === "periodo" ? "fecha" : key;
+
+    if (key === "periodo") {
+      nextParams.delete("fecha");
+
+      if (value?.desde) {
+        nextParams.set("desde", value.desde);
+      } else {
+        nextParams.delete("desde");
+      }
+
+      if (value?.hasta) {
+        nextParams.set("hasta", value.hasta);
+      } else {
+        nextParams.delete("hasta");
+      }
+
+      setSearchParams(nextParams);
+      return;
+    }
+
+    if (key === "producto") {
+      const products = Array.isArray(value) ? value : [];
+      nextParams.delete("producto");
+
+      if (products.length > 0) {
+        nextParams.set("productos", products.join(","));
+      } else {
+        nextParams.delete("productos");
+      }
+
+      setSearchParams(nextParams);
+      return;
+    }
 
     if (value) {
-      nextParams.set(paramName, value);
+      nextParams.set(key, value);
     } else {
-      nextParams.delete(paramName);
+      nextParams.delete(key);
     }
 
     setSearchParams(nextParams);
@@ -143,6 +154,7 @@ function Header() {
           visibleFilters={visibleFilters}
           options={options}
           values={values}
+          periodRange={filterData?.periodoDisponible ?? null}
           onChange={handleChange}
           loading={loading}
         />
