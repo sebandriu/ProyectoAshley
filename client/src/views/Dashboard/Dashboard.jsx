@@ -237,7 +237,9 @@ function Dashboard() {
   });
   const [analyticsError, setAnalyticsError] = useState("");
 
-  const selectedDate = searchParams.get("fecha") ?? "";
+  const legacyDate = searchParams.get("fecha") ?? "";
+  const selectedFrom = searchParams.get("desde") ?? legacyDate;
+  const selectedTo = searchParams.get("hasta") ?? legacyDate;
   const selectedStore = searchParams.get("tienda") ?? "";
 
   useEffect(() => {
@@ -263,8 +265,8 @@ function Dashboard() {
     setKpiError("");
 
     getKpiSummary({
-      desde: selectedDate || undefined,
-      hasta: selectedDate || undefined,
+      desde: selectedFrom || undefined,
+      hasta: selectedTo || undefined,
       tienda: selectedStore || undefined,
     })
       .then((data) => {
@@ -283,7 +285,7 @@ function Dashboard() {
     return () => {
       active = false;
     };
-  }, [selectedDate, selectedStore]);
+  }, [selectedFrom, selectedTo, selectedStore]);
 
   useEffect(() => {
     let active = true;
@@ -292,8 +294,8 @@ function Dashboard() {
     setEvolutionError("");
 
     getKpiEvolution({
-      desde: selectedDate || undefined,
-      hasta: selectedDate || undefined,
+      desde: selectedFrom || undefined,
+      hasta: selectedTo || undefined,
       tienda: selectedStore || undefined,
     })
       .then((data) => {
@@ -313,7 +315,7 @@ function Dashboard() {
     return () => {
       active = false;
     };
-  }, [selectedDate, selectedStore]);
+  }, [selectedFrom, selectedTo, selectedStore]);
 
 
   useEffect(() => {
@@ -322,8 +324,8 @@ function Dashboard() {
     setAnalyticsError("");
 
     const filters = {
-      desde: selectedDate || undefined,
-      hasta: selectedDate || undefined,
+      desde: selectedFrom || undefined,
+      hasta: selectedTo || undefined,
       tienda: selectedStore || undefined,
     };
 
@@ -348,7 +350,7 @@ function Dashboard() {
     return () => {
       active = false;
     };
-  }, [selectedDate, selectedStore]);
+  }, [selectedFrom, selectedTo, selectedStore]);
 
   const databaseOnline = systemStatus === "online";
 
