@@ -500,6 +500,7 @@ export async function getQuoteAnalytics(filters = {}) {
   const productCodes = applied.productos ?? [];
   let matchingSelect = `
     '[]'::jsonb AS productos_coincidentes,
+    0::integer AS cantidad_coincidencias,
     NULL::numeric AS unidades_coincidentes
   `;
 
@@ -532,6 +533,16 @@ export async function getQuoteAnalytics(filters = {}) {
       ) AS productos_coincidentes,
       COALESCE(
         (
+          SELECT COUNT(DISTINCT mc.codigo_item)
+          FROM detalle_documento mc
+          WHERE mc.documento_id = d.id
+            AND mc.tipo_linea = 'PRODUCTO'
+            AND mc.codigo_item = ANY(${productParameter})
+        ),
+        0
+      ) AS cantidad_coincidencias,
+      COALESCE(
+        (
           SELECT SUM(COALESCE(mu.cantidad, 0))
           FROM detalle_documento mu
           WHERE mu.documento_id = d.id
@@ -551,7 +562,8 @@ export async function getQuoteAnalytics(filters = {}) {
     vendedor: "d.vendedor",
     productos: "lineas_producto",
     unidades: "unidades_producto",
-    coincidencias: "unidades_coincidentes",
+    coincidencias: "cantidad_coincidencias",
+    unidadesCoincidentes: "unidades_coincidentes",
     totalBruto: "d.total_bruto",
   };
 
@@ -618,6 +630,7 @@ export async function getQuoteAnalytics(filters = {}) {
             cantidad: numeric(item.cantidad),
           }))
         : [],
+      cantidadCoincidencias: integer(row.cantidad_coincidencias),
       unidadesCoincidentes:
         row.unidades_coincidentes === null
           ? null
