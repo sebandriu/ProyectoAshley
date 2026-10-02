@@ -85,7 +85,7 @@ function buildFilters(filters = {}, { product = false } = {}) {
 
   if (sellerNames.length > 0) {
     values.push(sellerNames);
-    conditions.push(`d.vendedor = ANY(${values.length}::text[])`);
+    conditions.push("d.vendedor = ANY($" + values.length + "::text[])");
   }
 
   const productCodes = normalizeProductCodes(
@@ -207,11 +207,11 @@ export async function searchSellerNames(
 
   if (normalizedStore) {
     values.push(normalizedStore);
-    conditions.push(`tienda = ${values.length}`);
+    conditions.push("tienda = $" + values.length);
   }
 
   values.push(safeLimit);
-  const limitParameter = `${values.length}`;
+  const limitParameter = "$" + values.length;
 
   const result = await pool.query(
     `
@@ -505,7 +505,7 @@ export async function getQuoteAnalytics(filters = {}) {
 
   if (productCodes.length > 0) {
     values.push(productCodes);
-    const productParameter = `${values.length}::text[]`;
+    const productParameter = "$" + values.length + "::text[]";
 
     matchingSelect = `
       COALESCE(
