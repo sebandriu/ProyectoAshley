@@ -1,5 +1,5 @@
 const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+  import.meta.env.VITE_API_URL || "/api";
 
 function buildQuery(filters = {}) {
   const params = new URLSearchParams();
