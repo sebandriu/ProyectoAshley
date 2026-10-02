@@ -88,7 +88,7 @@ function buildFilters(filters = {}, { product = false } = {}) {
         FROM detalle_documento fdd
         WHERE fdd.documento_id = d.id
           AND fdd.tipo_linea = 'PRODUCTO'
-          AND fdd.codigo_item = ANY(${values.length}::text[])
+          AND fdd.codigo_item = ANY($${values.length}::text[])
       )
     `);
   }
@@ -196,7 +196,7 @@ export async function getProductAnalytics(filters = {}) {
   if (productCodes.length > 0) {
     values.push(productCodes);
     productConditions.push(
-      `dd.codigo_item = ANY(${values.length}::text[])`
+      `dd.codigo_item = ANY($${values.length}::text[])`
     );
   }
 
