@@ -27,7 +27,10 @@ function Cotizaciones() {
       desde: searchParams.get("desde") || legacyDate,
       hasta: searchParams.get("hasta") || legacyDate,
       tienda: searchParams.get("tienda") || undefined,
-      vendedor: searchParams.get("vendedor") || undefined,
+      vendedores:
+        searchParams.get("vendedores") ||
+        searchParams.get("vendedor") ||
+        undefined,
       productos:
         searchParams.get("productos") ||
         searchParams.get("producto") ||
