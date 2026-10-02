@@ -32,6 +32,19 @@ function percentage(numerator, denominator) {
   return Number(((numerator / denominator) * 100).toFixed(2));
 }
 
+function normalizeProductCodes(value) {
+  const source = Array.isArray(value) ? value : [value];
+
+  return [
+    ...new Set(
+      source
+        .flatMap((item) => String(item ?? "").split(/[;,\n]+/))
+        .map((item) => item.trim())
+        .filter(Boolean)
+    ),
+  ];
+}
+
 function buildFilters(filters = {}, { product = false } = {}) {
   const conditions = [];
   const values = [];
@@ -63,15 +76,19 @@ function buildFilters(filters = {}, { product = false } = {}) {
     conditions.push(`d.vendedor = $${values.length}`);
   }
 
-  if (product && filters.producto) {
-    values.push(String(filters.producto).trim());
+  const productCodes = normalizeProductCodes(
+    filters.productos ?? filters.producto
+  );
+
+  if (product && productCodes.length > 0) {
+    values.push(productCodes);
     conditions.push(`
       EXISTS (
         SELECT 1
         FROM detalle_documento fdd
         WHERE fdd.documento_id = d.id
           AND fdd.tipo_linea = 'PRODUCTO'
-          AND fdd.codigo_item = $${values.length}
+          AND fdd.codigo_item = ANY(${values.length}::text[])
       )
     `);
   }
@@ -84,25 +101,19 @@ function buildFilters(filters = {}, { product = false } = {}) {
       hasta,
       tienda: filters.tienda ? String(filters.tienda).trim() : null,
       vendedor: filters.vendedor ? String(filters.vendedor).trim() : null,
-      producto: filters.producto ? String(filters.producto).trim() : null,
+      productos: productCodes,
     },
   };
 }
 
 export async function getAnalyticsFilterOptions() {
-  const [periodResult, datesResult, storesResult, sellersResult, productsResult] =
+  const [periodResult, storesResult, sellersResult] =
     await Promise.all([
       pool.query(
         `SELECT
            TO_CHAR(MIN(fecha), 'YYYY-MM-DD') AS desde,
            TO_CHAR(MAX(fecha), 'YYYY-MM-DD') AS hasta
          FROM documentos`
-      ),
-      pool.query(
-        `SELECT DISTINCT TO_CHAR(fecha, 'YYYY-MM-DD') AS fecha
-         FROM documentos
-         WHERE fecha IS NOT NULL
-         ORDER BY fecha`
       ),
       pool.query(
         `SELECT DISTINCT tienda
@@ -118,17 +129,6 @@ export async function getAnalyticsFilterOptions() {
            AND BTRIM(vendedor) <> ''
          ORDER BY vendedor`
       ),
-      pool.query(
-        `SELECT
-           dd.codigo_item AS codigo,
-           MAX(dd.descripcion) AS descripcion
-         FROM detalle_documento dd
-         WHERE dd.tipo_linea = 'PRODUCTO'
-           AND dd.codigo_item IS NOT NULL
-           AND BTRIM(dd.codigo_item) <> ''
-         GROUP BY dd.codigo_item
-         ORDER BY MAX(dd.descripcion), dd.codigo_item`
-      ),
     ]);
 
   return {
@@ -136,14 +136,48 @@ export async function getAnalyticsFilterOptions() {
       desde: periodResult.rows[0]?.desde ?? null,
       hasta: periodResult.rows[0]?.hasta ?? null,
     },
-    fechas: datesResult.rows.map((row) => row.fecha).filter(Boolean),
     tiendas: storesResult.rows.map((row) => row.tienda).filter(Boolean),
     vendedores: sellersResult.rows.map((row) => row.vendedor).filter(Boolean),
-    productos: productsResult.rows.map((row) => ({
-      codigo: row.codigo,
-      descripcion: row.descripcion || row.codigo,
-    })),
   };
+}
+
+export async function searchProductCodes(query, limit = 8) {
+  const term = String(query ?? "").trim();
+
+  if (!term) {
+    return [];
+  }
+
+  const safeLimit = Math.min(Math.max(Number(limit) || 8, 1), 12);
+
+  const result = await pool.query(
+    `
+      SELECT
+        dd.codigo_item AS codigo,
+        MAX(dd.descripcion) AS descripcion
+      FROM detalle_documento dd
+      WHERE dd.tipo_linea = 'PRODUCTO'
+        AND dd.codigo_item IS NOT NULL
+        AND BTRIM(dd.codigo_item) <> ''
+        AND dd.codigo_item ILIKE '%' || $1 || '%'
+      GROUP BY dd.codigo_item
+      ORDER BY
+        CASE
+          WHEN UPPER(dd.codigo_item) = UPPER($1) THEN 0
+          WHEN UPPER(dd.codigo_item) LIKE UPPER($1) || '%' THEN 1
+          ELSE 2
+        END,
+        LENGTH(dd.codigo_item),
+        dd.codigo_item
+      LIMIT $2
+    `,
+    [term, safeLimit]
+  );
+
+  return result.rows.map((row) => ({
+    codigo: row.codigo,
+    descripcion: row.descripcion || row.codigo,
+  }));
 }
 
 export async function getProductAnalytics(filters = {}) {
@@ -155,9 +189,15 @@ export async function getProductAnalytics(filters = {}) {
     "BTRIM(dd.codigo_item) <> ''",
   ];
 
-  if (filters.producto) {
-    values.push(String(filters.producto).trim());
-    productConditions.push(`dd.codigo_item = $${values.length}`);
+  const productCodes = normalizeProductCodes(
+    filters.productos ?? filters.producto
+  );
+
+  if (productCodes.length > 0) {
+    values.push(productCodes);
+    productConditions.push(
+      `dd.codigo_item = ANY(${values.length}::text[])`
+    );
   }
 
   const documentWhere = where
