@@ -267,6 +267,7 @@
   right: 0;
 
   width: 320px;
+  max-width: calc(100vw - 24px);
   padding: 12px;
 
   background: #ffffff;
