@@ -170,7 +170,7 @@ function Productos() {
           <strong>{number.format(summary.demandaNoConvertida ?? 0)}</strong>
         </article>
         <article className="summary-card">
-          <span>Conversión por unidades</span>
+          <span>Conversión de unidades OF</span>
           <strong>
             {summary.conversionUnidadesPct == null
               ? "—"
@@ -248,7 +248,7 @@ function Productos() {
                     numeric
                   />
                   <SortableHeader
-                    label="Conversión"
+                    label="Conv. unidades OF"
                     sortKey="conversionUnidadesPct"
                     sort={sort}
                     onSort={handleSort}
