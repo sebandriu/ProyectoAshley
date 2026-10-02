@@ -2,6 +2,43 @@ import { pool } from "../config/database.js";
 import { readSapWorkbook } from "../services/excelService.js";
 import { processConsolidatedImport } from "../services/etlService.js";
 
+const RAW_BATCH_SIZE = 1000;
+
+async function insertRawRowsInBatches(client, importacionId, rows) {
+  for (let offset = 0; offset < rows.length; offset += RAW_BATCH_SIZE) {
+    const batch = rows.slice(offset, offset + RAW_BATCH_SIZE);
+
+    const payload = batch.map((row) => ({
+      numero_fila: row.rowNumber,
+      datos: row.data,
+    }));
+
+    await client.query(
+      `INSERT INTO importacion_raw
+        (importacion_id, numero_fila, datos)
+       SELECT
+         $1,
+         x.numero_fila,
+         x.datos
+       FROM jsonb_to_recordset($2::jsonb)
+         AS x(numero_fila INTEGER, datos JSONB)
+       ON CONFLICT (importacion_id, numero_fila)
+       DO UPDATE SET
+         datos = EXCLUDED.datos,
+         errores = NULL`,
+      [importacionId, JSON.stringify(payload)]
+    );
+
+    const processed = Math.min(offset + batch.length, rows.length);
+
+    if (processed === rows.length || processed % 10000 === 0) {
+      console.log(
+        `[Importación ${importacionId}] RAW guardado: ${processed}/${rows.length} filas`
+      );
+    }
+  }
+}
+
 export async function importExcel(req, res) {
   if (!req.file) {
     return res.status(400).json({
@@ -49,18 +86,11 @@ export async function importExcel(req, res) {
 
     importacion = importResult.rows[0];
 
-    for (const row of parsed.rows) {
-      await rawClient.query(
-        `INSERT INTO importacion_raw
-          (importacion_id, numero_fila, datos)
-         VALUES ($1, $2, $3::jsonb)`,
-        [
-          importacion.id,
-          row.rowNumber,
-          JSON.stringify(row.data),
-        ]
-      );
-    }
+    await insertRawRowsInBatches(
+      rawClient,
+      importacion.id,
+      parsed.rows
+    );
 
     await rawClient.query("COMMIT");
   } catch (error) {
