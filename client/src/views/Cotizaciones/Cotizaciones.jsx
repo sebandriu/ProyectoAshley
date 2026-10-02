@@ -21,14 +21,17 @@ function Cotizaciones() {
   const [error, setError] = useState("");
 
   const filters = useMemo(() => {
-    const fecha = searchParams.get("fecha") || undefined;
+    const legacyDate = searchParams.get("fecha") || undefined;
 
     return {
-      desde: fecha,
-      hasta: fecha,
+      desde: searchParams.get("desde") || legacyDate,
+      hasta: searchParams.get("hasta") || legacyDate,
       tienda: searchParams.get("tienda") || undefined,
       vendedor: searchParams.get("vendedor") || undefined,
-      producto: searchParams.get("producto") || undefined,
+      productos:
+        searchParams.get("productos") ||
+        searchParams.get("producto") ||
+        undefined,
     };
   }, [searchParams]);
 
