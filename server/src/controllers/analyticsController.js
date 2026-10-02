@@ -5,6 +5,7 @@ import {
   getQuoteAnalytics,
   getSalesAnalytics,
   searchProductCodes,
+  searchSellerNames,
 } from "../services/analyticsService.js";
 
 function filtersFromRequest(req) {
@@ -15,6 +16,9 @@ function filtersFromRequest(req) {
     vendedor: req.query.vendedor,
     producto: req.query.producto,
     productos: req.query.productos,
+    vendedores: req.query.vendedores,
+    orderBy: req.query.orderBy,
+    orderDir: req.query.orderDir,
   };
 }
 
@@ -50,6 +54,24 @@ export async function searchProducts(req, res) {
       res,
       error,
       "No fue posible buscar códigos de producto."
+    );
+  }
+}
+
+export async function searchSellers(req, res) {
+  try {
+    const vendedores = await searchSellerNames(
+      req.query.q,
+      req.query.limit,
+      req.query.tienda
+    );
+
+    return res.json({ vendedores });
+  } catch (error) {
+    return handleError(
+      res,
+      error,
+      "No fue posible buscar vendedores."
     );
   }
 }
