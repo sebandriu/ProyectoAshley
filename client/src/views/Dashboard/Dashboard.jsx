@@ -63,22 +63,25 @@ function formatApiDate(value) {
   return `${day}/${month}/${year}`;
 }
 
-const evolutionMetrics = {
-  cotizaciones: {
-    label: "Cotizaciones",
-    formatter: formatInteger,
-  },
-  ventas: {
-    label: "Ventas",
-    formatter: formatInteger,
-  },
-  conversion: {
-    label: "Conversión",
-    formatter: formatPercent,
-  },
-};
+function buildLinePath(values, getX, getY) {
+  let path = "";
+  let drawing = false;
 
-function EvolutionChart({ points, metric }) {
+  values.forEach((value, index) => {
+    if (value === null || value === undefined || !Number.isFinite(Number(value))) {
+      drawing = false;
+      return;
+    }
+
+    const command = drawing ? "L" : "M";
+    path += `${command}${getX(index)},${getY(Number(value))} `;
+    drawing = true;
+  });
+
+  return path.trim();
+}
+
+function CommercialTrendChart({ points }) {
   if (!points?.length) {
     return (
       <div className="evolution-empty">
@@ -89,130 +92,420 @@ function EvolutionChart({ points, metric }) {
     );
   }
 
-  const width = 760;
-  const height = 260;
+  const width = 920;
+  const height = 310;
   const padding = {
     top: 24,
-    right: 20,
-    bottom: 52,
-    left: 50,
+    right: 56,
+    bottom: 48,
+    left: 54,
   };
 
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
-  const values = points.map((point) => {
-    const value = point[metric];
-    return value === null || value === undefined ? null : Number(value);
-  });
 
-  const maxValue =
-    metric === "conversion"
-      ? 100
-      : Math.max(1, ...values.map((value) => value ?? 0));
+  const maxDocuments = Math.max(
+    1,
+    ...points.map((point) =>
+      Math.max(
+        Number(point.cotizaciones || 0),
+        Number(point.ventas || 0)
+      )
+    )
+  );
 
-  const slotWidth = chartWidth / points.length;
-  const barWidth = Math.min(56, Math.max(8, slotWidth * 0.48));
-  const labelEvery = Math.max(1, Math.ceil(points.length / 8));
-  const metricConfig = evolutionMetrics[metric];
+  const getX = (index) =>
+    points.length === 1
+      ? padding.left + chartWidth / 2
+      : padding.left + (index / (points.length - 1)) * chartWidth;
 
-  function getY(value) {
-    return (
-      padding.top +
-      chartHeight -
-      ((value ?? 0) / maxValue) * chartHeight
-    );
-  }
+  const getDocumentY = (value) =>
+    padding.top +
+    chartHeight -
+    (Number(value || 0) / maxDocuments) * chartHeight;
+
+  const getClosureY = (value) =>
+    padding.top +
+    chartHeight -
+    (Math.max(0, Math.min(100, Number(value || 0))) / 100) * chartHeight;
+
+  const quotePath = buildLinePath(
+    points.map((point) => Number(point.cotizaciones || 0)),
+    getX,
+    getDocumentY
+  );
+
+  const salesPath = buildLinePath(
+    points.map((point) => Number(point.ventas || 0)),
+    getX,
+    getDocumentY
+  );
+
+  const closurePath = buildLinePath(
+    points.map((point) =>
+      point.conversion === null || point.conversion === undefined
+        ? null
+        : Number(point.conversion)
+    ),
+    getX,
+    getClosureY
+  );
+
+  const labelIndexes = new Set(
+    Array.from({ length: Math.min(6, points.length) }, (_, index) =>
+      Math.round(
+        (index / Math.max(1, Math.min(6, points.length) - 1)) *
+          (points.length - 1)
+      )
+    )
+  );
 
   return (
-    <div className="evolution-chart">
+    <div className="advanced-trend-chart">
+      <div className="chart-legend">
+        <span><i className="legend-swatch quotes" />OF</span>
+        <span><i className="legend-swatch sales" />Ventas FR/FD</span>
+        <span><i className="legend-swatch closure" />Cierre OF</span>
+      </div>
+
       <svg
-        className="evolution-svg"
+        className="advanced-trend-svg"
         viewBox={`0 0 ${width} ${height}`}
         role="img"
-        aria-label={`Evolución de ${metricConfig.label.toLowerCase()}`}
+        aria-label="Evolución de ofertas, ventas y cierre de ofertas"
       >
         {Array.from({ length: 5 }).map((_, index) => {
           const ratio = index / 4;
           const y = padding.top + chartHeight * ratio;
-          const axisValue = maxValue * (1 - ratio);
+          const documentValue = maxDocuments * (1 - ratio);
+          const closureValue = 100 * (1 - ratio);
 
           return (
             <g key={`grid-${index}`}>
               <line
-                className="evolution-grid-line"
+                className="advanced-chart-grid"
                 x1={padding.left}
                 y1={y}
                 x2={width - padding.right}
                 y2={y}
               />
               <text
-                className="evolution-axis-label"
-                x={padding.left - 9}
+                className="advanced-chart-axis"
+                x={padding.left - 10}
                 y={y + 3}
                 textAnchor="end"
               >
-                {metric === "conversion"
-                  ? `${Math.round(axisValue)}%`
-                  : formatInteger(Math.round(axisValue))}
+                {formatInteger(Math.round(documentValue))}
+              </text>
+              <text
+                className="advanced-chart-axis closure-axis"
+                x={width - padding.right + 10}
+                y={y + 3}
+                textAnchor="start"
+              >
+                {Math.round(closureValue)}%
               </text>
             </g>
           );
         })}
 
+        <path className="trend-line quotes" d={quotePath} />
+        <path className="trend-line sales" d={salesPath} />
+        <path className="trend-line closure" d={closurePath} />
+
         {points.map((point, index) => {
-          const rawValue = values[index];
-          const value = rawValue ?? 0;
-          const x =
-            padding.left +
-            index * slotWidth +
-            (slotWidth - barWidth) / 2;
-          const y = getY(value);
-          const barHeight =
-            padding.top + chartHeight - y;
-          const showDate =
-            index % labelEvery === 0 ||
-            index === points.length - 1;
+          if (!labelIndexes.has(index)) return null;
 
           return (
-            <g key={`${point.fecha}-${metric}`}>
-              <rect
-                className="evolution-bar"
-                x={x}
-                y={y}
-                width={barWidth}
-                height={Math.max(barHeight, value > 0 ? 2 : 0)}
-                rx="5"
+            <text
+              className="advanced-chart-date"
+              key={`date-${point.fecha}-${index}`}
+              x={getX(index)}
+              y={height - 18}
+              textAnchor="middle"
+            >
+              {formatApiDate(point.fecha)}
+            </text>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+function QuoteStatusChart({ data }) {
+  const statuses = [
+    {
+      key: "complete",
+      label: "Convertidas completas",
+      value: Number(data?.convertidasCompletas || 0),
+    },
+    {
+      key: "partial",
+      label: "Conversión parcial",
+      value: Number(data?.conversionesParciales || 0),
+    },
+    {
+      key: "no-sale",
+      label: "Cerradas sin venta",
+      value: Number(data?.cerradasSinVenta || 0),
+    },
+    {
+      key: "pending",
+      label: "Pendientes",
+      value: Number(data?.pendientes || 0),
+    },
+    {
+      key: "cancelled",
+      label: "Canceladas",
+      value: Number(data?.canceladas || 0),
+    },
+  ];
+
+  const total = statuses.reduce((sum, status) => sum + status.value, 0);
+
+  if (total <= 0) {
+    return <div className="compact-empty-state"><span>Sin OF para este período.</span></div>;
+  }
+
+  return (
+    <div className="quote-status-chart">
+      <div className="quote-status-stack" aria-label="Distribución de estados de OF">
+        {statuses.map((status) => (
+          <div
+            key={status.key}
+            className={`quote-status-segment ${status.key}`}
+            style={{ width: `${(status.value / total) * 100}%` }}
+            title={`${status.label}: ${formatInteger(status.value)}`}
+          />
+        ))}
+      </div>
+
+      <div className="quote-status-legend">
+        {statuses.map((status) => (
+          <div className="quote-status-item" key={status.key}>
+            <span className={`status-dot-chart ${status.key}`} />
+            <div>
+              <span>{status.label}</span>
+              <strong>{formatInteger(status.value)}</strong>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SalesMixChart({ fr, fd }) {
+  const frValue = Number(fr || 0);
+  const fdValue = Number(fd || 0);
+  const total = frValue + fdValue;
+
+  if (total <= 0) {
+    return <div className="compact-empty-state"><span>Sin ventas para este período.</span></div>;
+  }
+
+  const radius = 54;
+  const circumference = 2 * Math.PI * radius;
+  const frLength = (frValue / total) * circumference;
+  const fdLength = circumference - frLength;
+
+  return (
+    <div className="sales-mix-chart">
+      <svg viewBox="0 0 150 150" className="sales-mix-donut" role="img" aria-label="Composición de ventas FR y FD">
+        <circle className="donut-track" cx="75" cy="75" r={radius} />
+        <circle
+          className="donut-segment fr"
+          cx="75"
+          cy="75"
+          r={radius}
+          strokeDasharray={`${frLength} ${circumference - frLength}`}
+        />
+        <circle
+          className="donut-segment fd"
+          cx="75"
+          cy="75"
+          r={radius}
+          strokeDasharray={`${fdLength} ${circumference - fdLength}`}
+          strokeDashoffset={-frLength}
+        />
+        <text className="donut-total" x="75" y="71" textAnchor="middle">
+          {formatInteger(total)}
+        </text>
+        <text className="donut-caption" x="75" y="88" textAnchor="middle">
+          ventas
+        </text>
+      </svg>
+
+      <div className="sales-mix-legend">
+        <div>
+          <span><i className="legend-swatch fr" />FR</span>
+          <strong>{formatInteger(frValue)}</strong>
+          <small>{formatPercent((frValue / total) * 100)}</small>
+        </div>
+        <div>
+          <span><i className="legend-swatch fd" />FD</span>
+          <strong>{formatInteger(fdValue)}</strong>
+          <small>{formatPercent((fdValue / total) * 100)}</small>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StoreRankingChart({ stores }) {
+  const rows = (stores ?? []).slice(0, 7);
+  const maxAmount = Math.max(
+    1,
+    ...rows.map((store) => Number(store.montoVendido || 0))
+  );
+
+  if (!rows.length) {
+    return <div className="compact-empty-state"><span>Sin tiendas para estos filtros.</span></div>;
+  }
+
+  return (
+    <div className="store-ranking-chart">
+      {rows.map((store) => {
+        const amount = Number(store.montoVendido || 0);
+        const width = Math.max(2, (amount / maxAmount) * 100);
+
+        return (
+          <div className="store-ranking-item" key={store.tienda}>
+            <div className="store-ranking-heading">
+              <strong>{store.tienda}</strong>
+              <span>{formatCurrency(amount)}</span>
+            </div>
+            <div className="store-ranking-track">
+              <div
+                className="store-ranking-fill"
+                style={{ width: `${width}%` }}
+              />
+            </div>
+            <div className="store-ranking-meta">
+              <span>{formatInteger(store.ventas)} ventas</span>
+              <span>Cierre OF {formatPercent(store.conversionPct)}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ProductOpportunityChart({ products }) {
+  const rows = [...(products ?? [])]
+    .filter((product) => Number(product.unidadesCotizadas || 0) > 0)
+    .sort(
+      (a, b) =>
+        Number(b.demandaNoConvertida || 0) -
+        Number(a.demandaNoConvertida || 0)
+    )
+    .slice(0, 30);
+
+  if (!rows.length) {
+    return <div className="compact-empty-state"><span>Sin productos suficientes para el gráfico.</span></div>;
+  }
+
+  const width = 760;
+  const height = 300;
+  const padding = { top: 20, right: 24, bottom: 48, left: 54 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+
+  const maxQuoted = Math.max(
+    1,
+    ...rows.map((product) => Number(product.unidadesCotizadas || 0))
+  );
+  const maxOpportunity = Math.max(
+    1,
+    ...rows.map((product) => Number(product.demandaNoConvertida || 0))
+  );
+  const maxSoldAmount = Math.max(
+    1,
+    ...rows.map((product) => Number(product.montoVendido || 0))
+  );
+
+  const getX = (value) =>
+    padding.left + (Number(value || 0) / maxQuoted) * chartWidth;
+  const getY = (value) =>
+    padding.top +
+    chartHeight -
+    (Number(value || 0) / maxOpportunity) * chartHeight;
+
+  return (
+    <div className="product-opportunity-chart">
+      <svg viewBox={`0 0 ${width} ${height}`} className="product-opportunity-svg">
+        {Array.from({ length: 5 }).map((_, index) => {
+          const ratio = index / 4;
+          const y = padding.top + chartHeight * ratio;
+
+          return (
+            <line
+              key={`grid-${index}`}
+              className="advanced-chart-grid"
+              x1={padding.left}
+              y1={y}
+              x2={width - padding.right}
+              y2={y}
+            />
+          );
+        })}
+
+        <line className="opportunity-axis-line" x1={padding.left} y1={padding.top} x2={padding.left} y2={padding.top + chartHeight} />
+        <line className="opportunity-axis-line" x1={padding.left} y1={padding.top + chartHeight} x2={width - padding.right} y2={padding.top + chartHeight} />
+
+        <text className="opportunity-axis-title" x={padding.left + chartWidth / 2} y={height - 10} textAnchor="middle">
+          Unidades cotizadas
+        </text>
+        <text
+          className="opportunity-axis-title"
+          x="15"
+          y={padding.top + chartHeight / 2}
+          textAnchor="middle"
+          transform={`rotate(-90 15 ${padding.top + chartHeight / 2})`}
+        >
+          Demanda no convertida
+        </text>
+
+        {rows.map((product, index) => {
+          const x = getX(product.unidadesCotizadas);
+          const y = getY(product.demandaNoConvertida);
+          const radius =
+            4 +
+            Math.sqrt(Number(product.montoVendido || 0) / maxSoldAmount) * 10;
+
+          return (
+            <g key={product.codigo}>
+              <circle
+                className="opportunity-bubble"
+                cx={x}
+                cy={y}
+                r={radius}
               >
                 <title>
-                  {`${formatApiDate(point.fecha)} · ${metricConfig.label}: ${metricConfig.formatter(rawValue)}`}
+                  {`${product.codigo} · ${product.descripcion} · Cotizadas: ${formatInteger(product.unidadesCotizadas)} · No convertidas: ${formatInteger(product.demandaNoConvertida)} · Vendidas: ${formatInteger(product.unidadesVendidas)} · Monto: ${formatCurrency(product.montoVendido)}`}
                 </title>
-              </rect>
+              </circle>
 
-              {points.length <= 10 && (
+              {index < 6 && (
                 <text
-                  className="evolution-value-label"
-                  x={x + barWidth / 2}
-                  y={Math.max(14, y - 7)}
-                  textAnchor="middle"
+                  className="opportunity-product-label"
+                  x={x + radius + 4}
+                  y={y - radius - 2}
                 >
-                  {metricConfig.formatter(rawValue)}
-                </text>
-              )}
-
-              {showDate && (
-                <text
-                  className="evolution-date-label"
-                  x={x + barWidth / 2}
-                  y={height - 21}
-                  textAnchor="middle"
-                >
-                  {formatApiDate(point.fecha)}
+                  {product.codigo}
                 </text>
               )}
             </g>
           );
         })}
       </svg>
+
+      <div className="chart-help-text">
+        Más arriba = mayor demanda cotizada aún no convertida. El tamaño del punto
+        aumenta con el monto vendido del producto.
+      </div>
     </div>
   );
 }
@@ -227,7 +520,6 @@ function Dashboard() {
   const [evolutionStatus, setEvolutionStatus] = useState("loading");
   const [evolutionData, setEvolutionData] = useState([]);
   const [evolutionError, setEvolutionError] = useState("");
-  const [evolutionMetric, setEvolutionMetric] = useState("cotizaciones");
 
   const [analyticsStatus, setAnalyticsStatus] = useState("loading");
   const [productData, setProductData] = useState({ resumen: {}, productos: [] });
@@ -271,13 +563,11 @@ function Dashboard() {
     })
       .then((data) => {
         if (!active) return;
-
         setKpiData(data);
         setKpiStatus("success");
       })
       .catch((error) => {
         if (!active) return;
-
         setKpiError(error.message);
         setKpiStatus("error");
       });
@@ -300,13 +590,11 @@ function Dashboard() {
     })
       .then((data) => {
         if (!active) return;
-
         setEvolutionData(data.puntos ?? []);
         setEvolutionStatus("success");
       })
       .catch((error) => {
         if (!active) return;
-
         setEvolutionData([]);
         setEvolutionError(error.message);
         setEvolutionStatus("error");
@@ -316,7 +604,6 @@ function Dashboard() {
       active = false;
     };
   }, [selectedFrom, selectedTo, selectedStore]);
-
 
   useEffect(() => {
     let active = true;
@@ -387,15 +674,15 @@ function Dashboard() {
             : "Documentos de venta válidos",
       },
       {
-        title: "Conversión",
+        title: "Cierre OF",
         icon: Percent,
         value: loading
           ? "…"
           : formatPercent(data?.conversion?.resueltasPct),
         caption:
           kpiStatus === "success"
-            ? `${formatInteger(data?.cotizaciones?.conVenta)} de ${formatInteger(data?.cotizaciones?.resueltas)} OF resueltas`
-            : "Conversión de ofertas resueltas",
+            ? `${formatInteger(data?.cotizaciones?.conVenta)} de ${formatInteger(data?.cotizaciones?.resueltas)} OF resueltas con venta`
+            : "OF resueltas que generaron venta",
       },
       {
         title: "Monto cotizado",
@@ -424,12 +711,6 @@ function Dashboard() {
     ? `/tiendas?${dashboardQuery}`
     : "/tiendas";
 
-  const metricTotals = {
-    cotizaciones: formatInteger(kpiData?.cotizaciones?.total),
-    ventas: formatInteger(kpiData?.ventas?.total),
-    conversion: formatPercent(kpiData?.conversion?.resueltasPct),
-  };
-
   return (
     <div className="page dashboard-page">
       <section className="kpi-grid" aria-label="Indicadores principales">
@@ -444,34 +725,28 @@ function Dashboard() {
         ))}
       </section>
 
+      <div className="dashboard-definition-note">
+        <strong>Cierre OF</strong> mide el porcentaje de ofertas resueltas que
+        generaron una venta completa o parcial. No corresponde a la conversión
+        oficial de tráfico de tienda, ya que Micapp no dispone del contador de
+        visitantes.
+      </div>
+
       <section className="dashboard-primary-grid">
         <article className="panel analytics-panel">
           <header className="panel-header">
             <div>
               <span className="panel-eyebrow">Visión general</span>
-              <h2>Evolución comercial</h2>
+              <h2>Evolución comercial combinada</h2>
             </div>
-
-            <div className="metric-tags" aria-label="Métricas disponibles">
-              {Object.entries(evolutionMetrics).map(([key, config]) => (
-                <button
-                  type="button"
-                  className={`metric-tag ${evolutionMetric === key ? "active" : ""}`}
-                  key={key}
-                  onClick={() => setEvolutionMetric(key)}
-                >
-                  {config.label} {metricTotals[key]}
-                </button>
-              ))}
-            </div>
+            <span className="module-count">
+              {evolutionData.length} puntos temporales
+            </span>
           </header>
 
-          <div className="evolution-visual">
+          <div className="evolution-visual advanced">
             {evolutionStatus === "success" ? (
-              <EvolutionChart
-                points={evolutionData}
-                metric={evolutionMetric}
-              />
+              <CommercialTrendChart points={evolutionData} />
             ) : (
               <div className="evolution-empty">
                 <BarChart3 size={22} strokeWidth={1.7} />
@@ -490,12 +765,8 @@ function Dashboard() {
           </div>
 
           <div className="evolution-footnote">
-            <span>
-              Período analizado: {periodLabel ?? "sin registros"}
-            </span>
-            <span>
-              {selectedStore ? `Tienda: ${selectedStore}` : "Todas las tiendas"}
-            </span>
+            <span>Período analizado: {periodLabel ?? "sin registros"}</span>
+            <span>{selectedStore ? `Tienda: ${selectedStore}` : "Todas las tiendas"}</span>
           </div>
         </article>
 
@@ -506,9 +777,7 @@ function Dashboard() {
               <h2>Información del sistema</h2>
             </div>
 
-            <span
-              className={`status-badge ${databaseOnline ? "online" : ""}`}
-            >
+            <span className={`status-badge ${databaseOnline ? "online" : ""}`}>
               <span className="status-dot" />
               {systemStatus === "checking"
                 ? "Comprobando"
@@ -551,6 +820,90 @@ function Dashboard() {
         </article>
       </section>
 
+      <section className="dashboard-insight-grid">
+        <article className="panel dashboard-chart-panel">
+          <header className="panel-header">
+            <div>
+              <span className="panel-eyebrow">Embudo comercial</span>
+              <h2>Estado de las OF</h2>
+            </div>
+          </header>
+          {kpiStatus === "success" ? (
+            <QuoteStatusChart data={kpiData?.cotizaciones} />
+          ) : (
+            <div className="compact-empty-state">
+              <span>{kpiStatus === "error" ? kpiError : "Cargando estados de OF..."}</span>
+            </div>
+          )}
+        </article>
+
+        <article className="panel dashboard-chart-panel">
+          <header className="panel-header">
+            <div>
+              <span className="panel-eyebrow">Composición</span>
+              <h2>Ventas FR vs FD</h2>
+            </div>
+          </header>
+          {kpiStatus === "success" ? (
+            <SalesMixChart fr={kpiData?.ventas?.fr} fd={kpiData?.ventas?.fd} />
+          ) : (
+            <div className="compact-empty-state">
+              <span>{kpiStatus === "error" ? kpiError : "Cargando composición de ventas..."}</span>
+            </div>
+          )}
+        </article>
+      </section>
+
+      <section className="dashboard-insight-grid wide-left">
+        <article className="panel dashboard-chart-panel">
+          <header className="panel-header">
+            <div className="panel-title-with-icon">
+              <PackageSearch size={17} strokeWidth={1.8} />
+              <div>
+                <span className="panel-eyebrow">Oportunidad comercial</span>
+                <h2>Cotización vs demanda no convertida</h2>
+              </div>
+            </div>
+            <Link className="panel-link" to={productsLink}>
+              Ver productos
+              <ArrowUpRight size={13} />
+            </Link>
+          </header>
+
+          {analyticsStatus === "success" ? (
+            <ProductOpportunityChart products={productData.productos} />
+          ) : (
+            <div className="compact-empty-state">
+              <span>{analyticsStatus === "error" ? analyticsError : "Analizando productos..."}</span>
+            </div>
+          )}
+        </article>
+
+        <article className="panel dashboard-chart-panel">
+          <header className="panel-header">
+            <div className="panel-title-with-icon">
+              <UsersRound size={17} strokeWidth={1.8} />
+              <div>
+                <span className="panel-eyebrow">Rendimiento</span>
+                <h2>Tiendas por monto vendido</h2>
+              </div>
+            </div>
+            <Link className="panel-link" to={performanceLink}>
+              Ver módulo
+              <ArrowUpRight size={13} />
+            </Link>
+          </header>
+
+          {analyticsStatus === "success" ? (
+            <StoreRankingChart stores={performanceData.tiendas} />
+          ) : (
+            <div className="compact-empty-state">
+              <span>{analyticsStatus === "error" ? analyticsError : "Analizando tiendas..."}</span>
+            </div>
+          )}
+        </article>
+      </section>
+
       <section className="dashboard-secondary-grid">
         <article className="panel compact-analysis-panel">
           <header className="panel-header">
@@ -585,21 +938,15 @@ function Dashboard() {
               <div className="mini-metrics">
                 <div>
                   <span>Unidades cotizadas</span>
-                  <strong>
-                    {formatInteger(productData.resumen?.unidadesCotizadas)}
-                  </strong>
+                  <strong>{formatInteger(productData.resumen?.unidadesCotizadas)}</strong>
                 </div>
                 <div>
                   <span>No convertidas</span>
-                  <strong>
-                    {formatInteger(productData.resumen?.demandaNoConvertida)}
-                  </strong>
+                  <strong>{formatInteger(productData.resumen?.demandaNoConvertida)}</strong>
                 </div>
                 <div>
-                  <span>Conversión</span>
-                  <strong>
-                    {formatPercent(productData.resumen?.conversionUnidadesPct)}
-                  </strong>
+                  <span>Conv. unidades OF</span>
+                  <strong>{formatPercent(productData.resumen?.conversionUnidadesPct)}</strong>
                 </div>
               </div>
 
@@ -611,12 +958,8 @@ function Dashboard() {
                       <span>{product.codigo}</span>
                     </div>
                     <div className="ranking-values">
-                      <span>
-                        {formatInteger(product.unidadesCotizadas)} cot.
-                      </span>
-                      <strong>
-                        {formatInteger(product.demandaNoConvertida)} sin conv.
-                      </strong>
+                      <span>{formatInteger(product.unidadesCotizadas)} cot.</span>
+                      <strong>{formatInteger(product.demandaNoConvertida)} sin conv.</strong>
                     </div>
                   </div>
                 ))}
