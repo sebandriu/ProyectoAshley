@@ -836,6 +836,29 @@ export async function getSalesAnalytics(filters = {}) {
     `;
   }
 
+  const sortColumns = {
+    fecha: "d.fecha",
+    tipo: "d.tipo_documento",
+    numero: "d.numero_documento",
+    folio: "d.folio",
+    estado: "d.cancelada_sap",
+    tienda: "d.tienda",
+    vendedor: "d.vendedor",
+    productos: "productos_distintos",
+    unidades: "unidades_producto",
+    montoSeleccionado: hasProductFilter
+      ? "monto_coincidente"
+      : "d.total_bruto",
+    totalBruto: "d.total_bruto",
+  };
+
+  const requestedOrder = String(filters.orderBy ?? "fecha");
+  const orderBy = sortColumns[requestedOrder] ?? sortColumns.fecha;
+  const orderDir =
+    String(filters.orderDir ?? "").toLowerCase() === "asc"
+      ? "ASC"
+      : "DESC";
+
   const result = await pool.query(
     `
       SELECT
@@ -851,6 +874,10 @@ export async function getSalesAnalytics(filters = {}) {
         COUNT(dd.id) FILTER (
           WHERE dd.tipo_linea = 'PRODUCTO'
         ) AS lineas_producto,
+        COUNT(DISTINCT dd.codigo_item) FILTER (
+          WHERE dd.tipo_linea = 'PRODUCTO'
+            AND dd.codigo_item IS NOT NULL
+        ) AS productos_distintos,
         COALESCE(
           SUM(dd.cantidad) FILTER (
             WHERE dd.tipo_linea = 'PRODUCTO'
@@ -862,7 +889,9 @@ export async function getSalesAnalytics(filters = {}) {
       LEFT JOIN detalle_documento dd ON dd.documento_id = d.id
       ${where}${extra}
       GROUP BY d.id
-      ORDER BY d.fecha DESC, d.numero_documento DESC
+      ORDER BY ${orderBy} ${orderDir} NULLS LAST,
+               d.fecha DESC,
+               d.numero_documento DESC
       LIMIT 500
     `,
     values
@@ -881,6 +910,10 @@ export async function getSalesAnalytics(filters = {}) {
       montoEsFiltrado: hasProductFilter,
     },
     resumenProductos,
+    orden: {
+      campo: requestedOrder,
+      direccion: orderDir.toLowerCase(),
+    },
     ventas: result.rows.map((row) => ({
       tipo: row.tipo_documento,
       docentry: row.docentry_sap,
@@ -893,6 +926,7 @@ export async function getSalesAnalytics(filters = {}) {
       vendedor: row.vendedor,
       totalBruto: numeric(row.total_bruto),
       lineasProducto: integer(row.lineas_producto),
+      productosDistintos: integer(row.productos_distintos),
       unidadesProducto: numeric(row.unidades_producto),
       productosCoincidentes: Array.isArray(row.productos_coincidentes)
         ? row.productos_coincidentes.map((item) => ({
