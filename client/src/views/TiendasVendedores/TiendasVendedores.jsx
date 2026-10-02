@@ -32,7 +32,7 @@ function PerformanceTable({ rows, type }) {
             {type === "seller" && <th>Tienda</th>}
             <th className="numeric">Cotizaciones</th>
             <th className="numeric">Ventas</th>
-            <th className="numeric">Conversión</th>
+            <th className="numeric">Cierre OF</th>
             <th className="numeric">Monto vendido</th>
           </tr>
         </thead>
