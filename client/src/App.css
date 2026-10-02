@@ -249,6 +249,306 @@
   color: #8d9299;
 }
 
+
+.filter-pill-button {
+  appearance: none;
+  font: inherit;
+  text-align: left;
+}
+
+.filter-popover-anchor {
+  position: relative;
+}
+
+.filter-popover {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 8px);
+  right: 0;
+
+  width: 320px;
+  padding: 12px;
+
+  background: #ffffff;
+  border: 1px solid #dedfe3;
+  border-radius: 12px;
+  box-shadow: 0 14px 36px rgba(25, 28, 34, 0.14);
+}
+
+.period-popover {
+  width: 330px;
+}
+
+.product-popover {
+  width: 370px;
+}
+
+.filter-popover-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.filter-popover-heading strong {
+  display: block;
+  color: #34373c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.filter-popover-heading span {
+  display: block;
+  margin-top: 2px;
+  color: #92969d;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.filter-clear-button {
+  flex-shrink: 0;
+  padding: 3px 6px;
+  border: 0;
+  background: transparent;
+  color: #d97909;
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.period-mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin-bottom: 10px;
+  padding: 3px;
+
+  background: #f4f5f6;
+  border-radius: 8px;
+}
+
+.period-mode-tabs button {
+  min-height: 28px;
+  padding: 0 6px;
+
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #777c84;
+
+  font-size: 9px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.period-mode-tabs button.active {
+  background: #ffffff;
+  color: #d97909;
+  box-shadow: 0 1px 4px rgba(25, 28, 34, 0.09);
+}
+
+.period-editor,
+.period-range-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.period-editor {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.period-range-editor {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.period-range-editor .filter-apply-button {
+  grid-column: 1 / -1;
+}
+
+.period-editor label,
+.period-range-editor label {
+  display: grid;
+  gap: 4px;
+
+  color: #777c84;
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.period-editor select,
+.period-editor input,
+.period-range-editor input {
+  width: 100%;
+  height: 34px;
+  padding: 0 9px;
+
+  border: 1px solid #dfe1e4;
+  border-radius: 8px;
+  outline: 0;
+
+  background: #ffffff;
+  color: #41454b;
+  font: inherit;
+  font-size: 10px;
+}
+
+.period-editor select:focus,
+.period-editor input:focus,
+.period-range-editor input:focus,
+.product-search-box:focus-within {
+  border-color: #f7941d;
+  box-shadow: 0 0 0 2px rgba(247, 148, 29, 0.1);
+}
+
+.filter-apply-button {
+  min-height: 34px;
+  padding: 0 12px;
+
+  border: 1px solid #ee8610;
+  border-radius: 8px;
+
+  background: #f7941d;
+  color: #ffffff;
+
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.filter-inline-error {
+  margin-top: 8px;
+  padding: 7px 8px;
+
+  border-radius: 7px;
+  background: #fff1f0;
+  color: #a9453b;
+
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.product-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 9px;
+}
+
+.product-filter-chip {
+  min-height: 25px;
+  padding: 0 5px 0 8px;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  border: 1px solid #f2d2ad;
+  border-radius: 999px;
+
+  background: #fff7ed;
+  color: #a8600c;
+
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.product-filter-chip button {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.product-filter-chip button:hover {
+  background: rgba(217, 121, 9, 0.1);
+}
+
+.product-search-box {
+  height: 36px;
+  padding: 0 9px;
+
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  border: 1px solid #dfe1e4;
+  border-radius: 8px;
+
+  color: #9a9ea5;
+  background: #ffffff;
+}
+
+.product-search-box input {
+  min-width: 0;
+  flex: 1;
+
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #3f4349;
+
+  font-size: 10px;
+}
+
+.product-search-box input::placeholder {
+  color: #a7abb1;
+}
+
+.product-search-results {
+  max-height: 245px;
+  margin-top: 7px;
+  overflow-y: auto;
+}
+
+.product-search-hint {
+  padding: 9px 7px;
+  color: #979ba2;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.product-search-result {
+  width: 100%;
+  padding: 8px;
+
+  display: grid;
+  gap: 2px;
+
+  border: 0;
+  border-radius: 8px;
+
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.product-search-result:hover,
+.product-search-result.active {
+  background: #f7f8f9;
+}
+
+.product-search-result strong {
+  color: #3f4349;
+  font-size: 10px;
+}
+
+.product-search-result span {
+  color: #92969d;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
 /* =========================================
    CONTENIDO
 ========================================= */
