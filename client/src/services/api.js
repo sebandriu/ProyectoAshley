@@ -107,6 +107,13 @@ export function getAnalyticsFilters() {
   );
 }
 
+export function searchProductCodes(query, limit = 8) {
+  return getJson(
+    "/analytics/productos/buscar" + buildQuery({ q: query, limit }),
+    "No fue posible buscar productos."
+  );
+}
+
 export function getProductAnalytics(filters = {}) {
   return getJson(
     `/analytics/productos${buildQuery(filters)}`,
