@@ -1354,6 +1354,89 @@
   white-space: nowrap;
 }
 
+
+.sortable-th {
+  padding: 0 !important;
+}
+
+.table-sort-button {
+  width: 100%;
+  min-height: 35px;
+  padding: 9px 10px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 5px;
+
+  border: 0;
+  background: transparent;
+  color: inherit;
+
+  font: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  text-align: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.numeric .table-sort-button {
+  justify-content: flex-end;
+}
+
+.table-sort-button:hover {
+  color: #d97909;
+  background: #fff8f0;
+}
+
+.table-sort-button:focus-visible {
+  outline: 2px solid rgba(247, 148, 29, 0.28);
+  outline-offset: -2px;
+}
+
+.sort-symbol {
+  width: 11px;
+  color: #b3b7bd;
+  font-size: 9px;
+  text-align: center;
+}
+
+.sort-symbol.active {
+  color: #e8840d;
+}
+
+.filter-context-note {
+  margin: -2px 0 10px;
+  padding: 8px 10px;
+
+  border: 1px solid #f0dfca;
+  border-radius: 8px;
+
+  background: #fffaf4;
+  color: #777b82;
+
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.filter-context-note strong {
+  color: #bb6b0d;
+}
+
+.quote-matches {
+  min-width: 190px;
+  max-width: 320px;
+
+  color: #6f747b !important;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.quotes-table {
+  min-width: 1040px;
+}
+
 .analytics-table td {
   padding: 9px 10px;
   border-bottom: 1px solid #f0f1f3;
