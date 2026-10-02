@@ -66,7 +66,10 @@ function TiendasVendedores() {
       desde: searchParams.get("desde") || legacyDate,
       hasta: searchParams.get("hasta") || legacyDate,
       tienda: searchParams.get("tienda") || undefined,
-      vendedor: searchParams.get("vendedor") || undefined,
+      vendedores:
+        searchParams.get("vendedores") ||
+        searchParams.get("vendedor") ||
+        undefined,
     };
   }, [searchParams]);
 
