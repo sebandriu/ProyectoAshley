@@ -1437,6 +1437,66 @@
   min-width: 1040px;
 }
 
+
+.sales-table.filtered {
+  min-width: 1180px;
+}
+
+.sale-matches-cell {
+  min-width: 210px;
+  max-width: 330px;
+}
+
+.sale-match-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.sale-match-item {
+  min-width: 0;
+  padding: 5px 7px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+
+  border: 1px solid #eceef0;
+  border-radius: 7px;
+
+  background: #fafafb;
+}
+
+.sale-match-item strong {
+  min-width: 0;
+  overflow: hidden;
+
+  color: #4b5057;
+  font-size: 9px;
+  font-weight: 700;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sale-match-item span {
+  flex-shrink: 0;
+
+  color: #8a8f96;
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+.filtered-sale-amount {
+  color: #c97009 !important;
+  font-weight: 700;
+}
+
+.sale-document-total {
+  color: #858a91 !important;
+}
+
 .analytics-table td {
   padding: 9px 10px;
   border-bottom: 1px solid #f0f1f3;
