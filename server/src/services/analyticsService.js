@@ -678,6 +678,122 @@ export async function getSalesAnalytics(filters = {}) {
     ? " AND d.tipo_documento IN ('FR', 'FD')"
     : "WHERE d.tipo_documento IN ('FR', 'FD')";
 
+  const productCodes = applied.productos ?? [];
+  const hasProductFilter = productCodes.length > 0;
+
+  const summaryValues = [...values];
+  let summaryAmountExpression = "COALESCE(d.total_bruto, 0)";
+
+  if (hasProductFilter) {
+    summaryValues.push(productCodes);
+    const summaryProductParameter =
+      "$" + summaryValues.length + "::text[]";
+
+    summaryAmountExpression = `
+      COALESCE(
+        (
+          SELECT SUM(COALESCE(sd.total_bruto, 0))
+          FROM detalle_documento sd
+          WHERE sd.documento_id = d.id
+            AND sd.tipo_linea = 'PRODUCTO'
+            AND sd.codigo_item = ANY(${summaryProductParameter})
+        ),
+        0
+      )
+    `;
+  }
+
+  const summaryResult = await pool.query(
+    `
+      SELECT
+        COUNT(*) FILTER (
+          WHERE COALESCE(d.cancelada_sap, 'N') = 'N'
+        ) AS validas,
+        COUNT(*) FILTER (
+          WHERE d.tipo_documento = 'FR'
+            AND COALESCE(d.cancelada_sap, 'N') = 'N'
+        ) AS fr,
+        COUNT(*) FILTER (
+          WHERE d.tipo_documento = 'FD'
+            AND COALESCE(d.cancelada_sap, 'N') = 'N'
+        ) AS fd,
+        COUNT(*) FILTER (
+          WHERE COALESCE(d.cancelada_sap, 'N') <> 'N'
+        ) AS canceladas,
+        COALESCE(
+          SUM(
+            CASE
+              WHEN COALESCE(d.cancelada_sap, 'N') = 'N'
+              THEN ${summaryAmountExpression}
+              ELSE 0
+            END
+          ),
+          0
+        ) AS monto
+      FROM documentos d
+      ${where}${extra}
+    `,
+    summaryValues
+  );
+
+  let matchingSelect = `
+    '[]'::jsonb AS productos_coincidentes,
+    NULL::numeric AS unidades_coincidentes,
+    NULL::numeric AS monto_coincidente
+  `;
+
+  if (hasProductFilter) {
+    values.push(productCodes);
+    const productParameter = "$" + values.length + "::text[]";
+
+    matchingSelect = `
+      COALESCE(
+        (
+          SELECT jsonb_agg(
+            jsonb_build_object(
+              'codigo', coincidencias.codigo_item,
+              'cantidad', coincidencias.cantidad,
+              'montoBruto', coincidencias.monto_bruto
+            )
+            ORDER BY coincidencias.codigo_item
+          )
+          FROM (
+            SELECT
+              md.codigo_item,
+              SUM(COALESCE(md.cantidad, 0)) AS cantidad,
+              SUM(COALESCE(md.total_bruto, 0)) AS monto_bruto
+            FROM detalle_documento md
+            WHERE md.documento_id = d.id
+              AND md.tipo_linea = 'PRODUCTO'
+              AND md.codigo_item = ANY(${productParameter})
+            GROUP BY md.codigo_item
+          ) AS coincidencias
+        ),
+        '[]'::jsonb
+      ) AS productos_coincidentes,
+      COALESCE(
+        (
+          SELECT SUM(COALESCE(mu.cantidad, 0))
+          FROM detalle_documento mu
+          WHERE mu.documento_id = d.id
+            AND mu.tipo_linea = 'PRODUCTO'
+            AND mu.codigo_item = ANY(${productParameter})
+        ),
+        0
+      ) AS unidades_coincidentes,
+      COALESCE(
+        (
+          SELECT SUM(COALESCE(mm.total_bruto, 0))
+          FROM detalle_documento mm
+          WHERE mm.documento_id = d.id
+            AND mm.tipo_linea = 'PRODUCTO'
+            AND mm.codigo_item = ANY(${productParameter})
+        ),
+        0
+      ) AS monto_coincidente
+    `;
+  }
+
   const result = await pool.query(
     `
       SELECT
@@ -690,8 +806,16 @@ export async function getSalesAnalytics(filters = {}) {
         d.tienda,
         d.vendedor,
         d.total_bruto,
-        COUNT(dd.id) FILTER (WHERE dd.tipo_linea = 'PRODUCTO') AS lineas_producto,
-        COALESCE(SUM(dd.cantidad) FILTER (WHERE dd.tipo_linea = 'PRODUCTO'), 0) AS unidades_producto
+        COUNT(dd.id) FILTER (
+          WHERE dd.tipo_linea = 'PRODUCTO'
+        ) AS lineas_producto,
+        COALESCE(
+          SUM(dd.cantidad) FILTER (
+            WHERE dd.tipo_linea = 'PRODUCTO'
+          ),
+          0
+        ) AS unidades_producto,
+        ${matchingSelect}
       FROM documentos d
       LEFT JOIN detalle_documento dd ON dd.documento_id = d.id
       ${where}${extra}
@@ -702,8 +826,18 @@ export async function getSalesAnalytics(filters = {}) {
     values
   );
 
+  const summaryRow = summaryResult.rows[0];
+
   return {
     filtros: applied,
+    resumen: {
+      validas: integer(summaryRow.validas),
+      fr: integer(summaryRow.fr),
+      fd: integer(summaryRow.fd),
+      canceladas: integer(summaryRow.canceladas),
+      monto: numeric(summaryRow.monto),
+      montoEsFiltrado: hasProductFilter,
+    },
     ventas: result.rows.map((row) => ({
       tipo: row.tipo_documento,
       docentry: row.docentry_sap,
@@ -717,6 +851,22 @@ export async function getSalesAnalytics(filters = {}) {
       totalBruto: numeric(row.total_bruto),
       lineasProducto: integer(row.lineas_producto),
       unidadesProducto: numeric(row.unidades_producto),
+      productosCoincidentes: Array.isArray(row.productos_coincidentes)
+        ? row.productos_coincidentes.map((item) => ({
+            codigo: item.codigo,
+            cantidad: numeric(item.cantidad),
+            montoBruto: numeric(item.montoBruto),
+          }))
+        : [],
+      unidadesCoincidentes:
+        row.unidades_coincidentes === null
+          ? null
+          : numeric(row.unidades_coincidentes),
+      montoCoincidente:
+        row.monto_coincidente === null
+          ? null
+          : numeric(row.monto_coincidente),
     })),
   };
 }
+
