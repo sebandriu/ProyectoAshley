@@ -9,7 +9,10 @@ import {
   X,
 } from "lucide-react";
 
-import { searchProductCodes } from "../../services/api";
+import {
+  searchProductCodes,
+  searchSellerNames,
+} from "../../services/api";
 
 const filters = {
   tienda: {
@@ -694,6 +697,268 @@ function ProductFilter({
   );
 }
 
+function SellerFilter({
+  value = [],
+  tienda = "",
+  onChange,
+  loading,
+}) {
+  const containerRef = useRef(null);
+  const inputRef = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useOutsideClose(containerRef, open, () => setOpen(false));
+
+  const selected = Array.isArray(value) ? value : [];
+  const selectedKey = selected.join("|");
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const term = query.trim();
+
+    if (term.length < 2) {
+      setResults([]);
+      setSearching(false);
+      setSearchError("");
+      return undefined;
+    }
+
+    let active = true;
+
+    const timer = window.setTimeout(() => {
+      setSearching(true);
+      setSearchError("");
+
+      searchSellerNames(term, {
+        limit: 8,
+        tienda: tienda || undefined,
+      })
+        .then((response) => {
+          if (!active) return;
+
+          const selectedSet = new Set(
+            selected.map((name) => String(name).toUpperCase())
+          );
+
+          const matches = (response.vendedores ?? []).filter(
+            (name) =>
+              !selectedSet.has(String(name).toUpperCase())
+          );
+
+          setResults(matches);
+          setActiveIndex(0);
+        })
+        .catch((error) => {
+          if (!active) return;
+          setResults([]);
+          setSearchError(error.message);
+        })
+        .finally(() => {
+          if (active) setSearching(false);
+        });
+    }, 250);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [open, query, selectedKey, tienda]);
+
+  useEffect(() => {
+    if (open) {
+      window.setTimeout(() => inputRef.current?.focus(), 0);
+    }
+  }, [open]);
+
+  function addSeller(name) {
+    const seller = String(name ?? "").trim();
+
+    if (!seller) return;
+
+    const exists = selected.some(
+      (item) =>
+        String(item).toUpperCase() === seller.toUpperCase()
+    );
+
+    if (!exists) {
+      onChange?.("vendedor", [...selected, seller]);
+    }
+
+    setQuery("");
+    setResults([]);
+    setActiveIndex(0);
+    inputRef.current?.focus();
+  }
+
+  function removeSeller(name) {
+    onChange?.(
+      "vendedor",
+      selected.filter((item) => item !== name)
+    );
+  }
+
+  function handleKeyDown(event) {
+    if (event.key === "ArrowDown" && results.length > 0) {
+      event.preventDefault();
+      setActiveIndex((current) =>
+        Math.min(current + 1, results.length - 1)
+      );
+    }
+
+    if (event.key === "ArrowUp" && results.length > 0) {
+      event.preventDefault();
+      setActiveIndex((current) => Math.max(current - 1, 0));
+    }
+
+    if (event.key === "Enter" && results[activeIndex]) {
+      event.preventDefault();
+      addSeller(results[activeIndex]);
+    }
+
+    if (event.key === "Escape") {
+      setOpen(false);
+    }
+  }
+
+  const visibleLabel =
+    selected.length === 0
+      ? "Vendedor"
+      : selected.length === 1
+        ? selected[0]
+        : `${selected.length} vendedores`;
+
+  return (
+    <div className="filter-popover-anchor" ref={containerRef}>
+      <button
+        type="button"
+        className="filter-pill filter-pill-button"
+        disabled={loading}
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <UserRound
+          className="filter-pill-icon"
+          size={15}
+          strokeWidth={1.9}
+          aria-hidden="true"
+        />
+        <span className="filter-pill-value">{visibleLabel}</span>
+        <ChevronDown
+          className="filter-pill-chevron"
+          size={14}
+          strokeWidth={1.8}
+          aria-hidden="true"
+        />
+      </button>
+
+      {open && (
+        <div className="filter-popover product-popover">
+          <div className="filter-popover-heading">
+            <div>
+              <strong>Vendedores</strong>
+              <span>
+                Busca por una parte del nombre
+                {tienda ? ` dentro de ${tienda}` : ""}.
+              </span>
+            </div>
+
+            {selected.length > 0 && (
+              <button
+                type="button"
+                className="filter-clear-button"
+                onClick={() => onChange?.("vendedor", [])}
+              >
+                Limpiar
+              </button>
+            )}
+          </div>
+
+          {selected.length > 0 && (
+            <div className="product-filter-chips">
+              {selected.map((name) => (
+                <span className="product-filter-chip" key={name}>
+                  {name}
+                  <button
+                    type="button"
+                    aria-label={`Quitar ${name}`}
+                    onClick={() => removeSeller(name)}
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="product-search-box">
+            <Search size={15} aria-hidden="true" />
+            <input
+              ref={inputRef}
+              type="search"
+              value={query}
+              placeholder="Ej. marc"
+              autoComplete="off"
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+          </div>
+
+          <div className="product-search-results">
+            {query.trim().length < 2 && (
+              <div className="product-search-hint">
+                Escribe al menos 2 caracteres del nombre.
+              </div>
+            )}
+
+            {query.trim().length >= 2 && searching && (
+              <div className="product-search-hint">
+                Buscando vendedores...
+              </div>
+            )}
+
+            {query.trim().length >= 2 &&
+              !searching &&
+              !searchError &&
+              results.length === 0 && (
+                <div className="product-search-hint">
+                  No se encontraron vendedores relacionados.
+                </div>
+              )}
+
+            {searchError && (
+              <div className="filter-inline-error">{searchError}</div>
+            )}
+
+            {!searching &&
+              results.map((name, index) => (
+                <button
+                  type="button"
+                  className={
+                    index === activeIndex
+                      ? "product-search-result active"
+                      : "product-search-result"
+                  }
+                  key={name}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onClick={() => addSeller(name)}
+                >
+                  <strong>{name}</strong>
+                  <span>{tienda || "Vendedor disponible"}</span>
+                </button>
+              ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SelectFilter({
   filterKey,
   label,
@@ -793,6 +1058,18 @@ function FilterBar({
             <ProductFilter
               key={key}
               value={values.producto}
+              onChange={onChange}
+              loading={loading}
+            />
+          );
+        }
+
+        if (key === "vendedor") {
+          return (
+            <SellerFilter
+              key={key}
+              value={values.vendedor}
+              tienda={values.tienda}
               onChange={onChange}
               loading={loading}
             />
