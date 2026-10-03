@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
+import { LogOut } from "lucide-react";
 
 import FilterBar from "../FilterBar/FilterBar";
-import { getAnalyticsFilters } from "../../services/api";
+import { getAnalyticsFilters, logoutSession } from "../../services/api";
 
 function filtersForPath(pathname) {
   if (pathname === "/") return ["periodo", "tienda"];
@@ -135,6 +136,16 @@ function Header() {
     ),
   };
 
+  async function handleLogout() {
+    try {
+      await logoutSession();
+    } catch (error) {
+      console.error("No fue posible cerrar la sesión:", error);
+    } finally {
+      window.location.assign("/login");
+    }
+  }
+
   function handleChange(key, value) {
     const nextParams = new URLSearchParams(searchParams);
 
@@ -201,16 +212,29 @@ function Header() {
         <p>Version 1.0 - Prueba</p>
       </div>
 
-      {visibleFilters.length > 0 && (
-        <FilterBar
-          visibleFilters={visibleFilters}
-          options={options}
-          values={values}
-          periodRange={filterData?.periodoDisponible ?? null}
-          onChange={handleChange}
-          loading={loading}
-        />
-      )}
+      <div className="topbar-actions">
+        {visibleFilters.length > 0 && (
+          <FilterBar
+            visibleFilters={visibleFilters}
+            options={options}
+            values={values}
+            periodRange={filterData?.periodoDisponible ?? null}
+            onChange={handleChange}
+            loading={loading}
+          />
+        )}
+
+        <button
+          type="button"
+          className="logout-button"
+          onClick={handleLogout}
+          title="Cerrar sesión"
+          aria-label="Cerrar sesión"
+        >
+          <LogOut size={16} strokeWidth={1.9} />
+          <span>Cerrar sesión</span>
+        </button>
+      </div>
     </header>
   );
 }
