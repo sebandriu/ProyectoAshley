@@ -247,15 +247,17 @@ export async function authenticateUser(username, password) {
   const token = randomBytes(32).toString("base64url");
   const hashedToken = tokenHash(token);
 
-  await pool.query("BEGIN");
+  const client = await pool.connect();
 
   try {
-    await pool.query(
+    await client.query("BEGIN");
+
+    await client.query(
       "DELETE FROM sesiones_usuario WHERE usuario_id = $1 OR expira_en <= NOW()",
       [user.id]
     );
 
-    await pool.query(
+    await client.query(
       `
         INSERT INTO sesiones_usuario (
           usuario_id,
@@ -271,7 +273,7 @@ export async function authenticateUser(username, password) {
       [user.id, hashedToken, SESSION_MAX_AGE_MS]
     );
 
-    await pool.query(
+    await client.query(
       `
         UPDATE usuarios
         SET
@@ -284,10 +286,12 @@ export async function authenticateUser(username, password) {
       [user.id]
     );
 
-    await pool.query("COMMIT");
+    await client.query("COMMIT");
   } catch (error) {
-    await pool.query("ROLLBACK");
+    await client.query("ROLLBACK");
     throw error;
+  } finally {
+    client.release();
   }
 
   return {
