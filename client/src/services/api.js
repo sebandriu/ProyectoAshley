@@ -14,9 +14,42 @@ function buildQuery(filters = {}) {
   return query ? `?${query}` : "";
 }
 
+function notifyUnauthorized() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("micapp:unauthorized"));
+  }
+}
+
+async function apiFetch(
+  path,
+  options = {},
+  { redirectOnUnauthorized = true } = {}
+) {
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    credentials: "include",
+  });
+
+  if (response.status === 401 && redirectOnUnauthorized) {
+    notifyUnauthorized();
+  }
+
+  return response;
+}
+
+async function parseJson(response) {
+  const contentType = response.headers.get("content-type") || "";
+
+  if (!contentType.includes("application/json")) {
+    return {};
+  }
+
+  return response.json();
+}
+
 async function getJson(path, fallbackMessage) {
-  const response = await fetch(`${API_URL}${path}`);
-  const data = await response.json();
+  const response = await apiFetch(path);
+  const data = await parseJson(response);
 
   if (!response.ok) {
     throw new Error(data.message || fallbackMessage);
@@ -25,15 +58,87 @@ async function getJson(path, fallbackMessage) {
   return data;
 }
 
+export async function loginSession({ username, password }) {
+  const response = await apiFetch(
+    "/auth/login",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username,
+        password,
+      }),
+    },
+    { redirectOnUnauthorized: false }
+  );
+
+  const data = await parseJson(response);
+
+  if (!response.ok) {
+    throw new Error(
+      data.message || "No fue posible iniciar sesión."
+    );
+  }
+
+  return data;
+}
+
+export async function getCurrentSession() {
+  const response = await apiFetch(
+    "/auth/session",
+    {},
+    { redirectOnUnauthorized: false }
+  );
+
+  const data = await parseJson(response);
+
+  if (response.status === 401) {
+    return {
+      authenticated: false,
+      user: null,
+    };
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data.message || "No fue posible comprobar la sesión."
+    );
+  }
+
+  return data;
+}
+
+export async function logoutSession() {
+  const response = await apiFetch(
+    "/auth/logout",
+    {
+      method: "POST",
+    },
+    { redirectOnUnauthorized: false }
+  );
+
+  const data = await parseJson(response);
+
+  if (!response.ok && response.status !== 401) {
+    throw new Error(
+      data.message || "No fue posible cerrar la sesión."
+    );
+  }
+
+  return data;
+}
 
 export async function getSystemHealth() {
-  const response = await fetch(`${API_URL}/health`);
+  const response = await apiFetch("/health");
+  const data = await parseJson(response);
 
   if (!response.ok) {
     throw new Error("No fue posible comprobar el estado de Micapp.");
   }
 
-  return response.json();
+  return data;
 }
 
 export async function getKpiSummary(filters = {}) {
@@ -46,11 +151,11 @@ export async function getKpiSummary(filters = {}) {
   });
 
   const query = params.toString();
-  const response = await fetch(
-    `${API_URL}/kpis/resumen${query ? `?${query}` : ""}`
+  const response = await apiFetch(
+    `/kpis/resumen${query ? `?${query}` : ""}`
   );
 
-  const data = await response.json();
+  const data = await parseJson(response);
 
   if (!response.ok) {
     throw new Error(
@@ -71,11 +176,11 @@ export async function getKpiEvolution(filters = {}) {
   });
 
   const query = params.toString();
-  const response = await fetch(
-    `${API_URL}/kpis/evolucion${query ? `?${query}` : ""}`
+  const response = await apiFetch(
+    `/kpis/evolucion${query ? `?${query}` : ""}`
   );
 
-  const data = await response.json();
+  const data = await parseJson(response);
 
   if (!response.ok) {
     throw new Error(
@@ -87,8 +192,8 @@ export async function getKpiEvolution(filters = {}) {
 }
 
 export async function getKpiFilters() {
-  const response = await fetch(`${API_URL}/kpis/filtros`);
-  const data = await response.json();
+  const response = await apiFetch("/kpis/filtros");
+  const data = await parseJson(response);
 
   if (!response.ok) {
     throw new Error(
@@ -98,7 +203,6 @@ export async function getKpiFilters() {
 
   return data;
 }
-
 
 export function getAnalyticsFilters() {
   return getJson(
@@ -158,12 +262,12 @@ export async function importSapFile(file) {
   const formData = new FormData();
   formData.append("archivo", file);
 
-  const response = await fetch(`${API_URL}/importaciones`, {
+  const response = await apiFetch("/importaciones", {
     method: "POST",
     body: formData,
   });
 
-  const data = await response.json();
+  const data = await parseJson(response);
 
   if (!response.ok) {
     throw new Error(data.message || "No fue posible importar el archivo.");
