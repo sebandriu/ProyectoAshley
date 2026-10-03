@@ -134,3 +134,54 @@ CREATE INDEX IF NOT EXISTS idx_detalle_base
 
 CREATE INDEX IF NOT EXISTS idx_relaciones_target
     ON relaciones_documento(target_type, target_docentry_sap);
+
+
+-- =========================================
+-- AUTENTICACIÓN MICAPP
+-- Las contraseñas se almacenan únicamente como hash scrypt.
+-- =========================================
+
+CREATE TABLE IF NOT EXISTS usuarios (
+    id BIGSERIAL PRIMARY KEY,
+    usuario VARCHAR(80) NOT NULL UNIQUE,
+    nombre VARCHAR(120) NOT NULL,
+    rol VARCHAR(30) NOT NULL DEFAULT 'STORE_MANAGER'
+        CHECK (rol IN ('STORE_MANAGER', 'ADMIN')),
+    password_hash TEXT NOT NULL,
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
+    intentos_fallidos INTEGER NOT NULL DEFAULT 0,
+    bloqueado_hasta TIMESTAMPTZ,
+    ultimo_acceso TIMESTAMPTZ,
+    creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS sesiones_usuario (
+    id BIGSERIAL PRIMARY KEY,
+    usuario_id BIGINT NOT NULL
+        REFERENCES usuarios(id) ON DELETE CASCADE,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expira_en TIMESTAMPTZ NOT NULL,
+    ultima_actividad TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sesiones_usuario_expira
+    ON sesiones_usuario(expira_en);
+
+CREATE INDEX IF NOT EXISTS idx_sesiones_usuario_usuario
+    ON sesiones_usuario(usuario_id);
+
+INSERT INTO usuarios (
+    usuario,
+    nombre,
+    rol,
+    password_hash
+)
+VALUES (
+    'ashsmant',
+    'Store Manager',
+    'STORE_MANAGER',
+    'scrypt$16384$8$1$VZujFyDf+9Jq//d+PxD33w==$Z6QvnOvVvNlZjJwROpauk8AUajQQg9BNcdL5UIWbiQZ/uQOqvsZWDWfilUi0+4nszUsC9WRugjYHbviu/KXoqg=='
+)
+ON CONFLICT (usuario) DO NOTHING;
