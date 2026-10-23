@@ -12,6 +12,8 @@ import {
   TrendingUp,
 } from "lucide-react";
 
+import RadarChart from "../../components/RadarChart/RadarChart";
+
 import {
   getKpiEvolution,
   getKpiSummary,
@@ -574,6 +576,42 @@ function Dashboard() {
     [summary, performance, selectedStore]
   );
 
+  const radarRows = useMemo(() => {
+    if (!summary) return [];
+
+    const current = {
+      id: "current",
+      label: "Período actual",
+      montoVendido: summary.montos?.vendidoBruto ?? 0,
+      ventas: summary.ventas?.total ?? 0,
+      cotizaciones: performance.current.tiendas.reduce(
+        (sum, row) => sum + Number(row.cotizaciones || 0),
+        0
+      ),
+      conversionPct: summary.conversion?.resueltasPct ?? null,
+      ticketPromedio: summary.montos?.ticketPromedioBruto ?? 0,
+    };
+
+    const previous = summary.comparacion?.valoresAnteriores;
+    if (!previous) return [current];
+
+    return [
+      current,
+      {
+        id: "previous",
+        label: "Período anterior",
+        montoVendido: previous.montoVendidoBruto ?? 0,
+        ventas: previous.ventas ?? 0,
+        cotizaciones: performance.previous.tiendas.reduce(
+          (sum, row) => sum + Number(row.cotizaciones || 0),
+          0
+        ),
+        conversionPct: previous.cierreOfPct ?? null,
+        ticketPromedio: previous.ticketPromedioBruto ?? 0,
+      },
+    ];
+  }, [summary, performance.current, performance.previous]);
+
   return (
     <div className="page executive-dashboard">
       <div className="executive-context">
@@ -719,6 +757,27 @@ function Dashboard() {
               </div>
             )}
         </article>
+      </section>
+
+      <section className="panel radar-module-panel">
+        <header className="executive-panel-header">
+          <div>
+            <span className="panel-eyebrow">Perfil comercial</span>
+            <h2>Gráfico de estrellas</h2>
+          </div>
+          <span className="executive-panel-note">
+            Indicadores del período seleccionado
+          </span>
+        </header>
+
+        {status === "loading" ? (
+          <div className="radar-chart-empty">Preparando perfil comercial...</div>
+        ) : (
+          <RadarChart
+            rows={radarRows}
+            emptyMessage="Sin actividad comercial para generar el radar."
+          />
+        )}
       </section>
     </div>
   );
