@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import RadarChart from "../../components/RadarChart/RadarChart";
 import { getPerformanceAnalytics } from "../../services/api";
 
 const currency = new Intl.NumberFormat("es-CL", {
@@ -97,6 +98,13 @@ function TiendasVendedores() {
 
   const stores = data.tiendas ?? [];
   const sellers = data.vendedores ?? [];
+  const highlightedSellers = sellers.slice(0, 3).map((seller) => ({
+    ...seller,
+    id: String(seller.tienda || "") + "|" + String(seller.vendedor || ""),
+    label: seller.tienda
+      ? seller.vendedor + " · " + seller.tienda
+      : seller.vendedor,
+  }));
   const totalSold = stores.reduce(
     (sum, store) => sum + Number(store.montoVendido || 0),
     0
@@ -131,6 +139,27 @@ function TiendasVendedores() {
 
       {status === "error" && (
         <section className="panel module-state error">{error}</section>
+      )}
+
+      {status === "success" && (
+        <section className="panel radar-module-panel">
+          <header className="module-header">
+            <div>
+              <span className="panel-eyebrow">Comparativa comercial</span>
+              <h2>Gráfico de estrellas · Vendedores</h2>
+            </div>
+            <span className="module-count">Top {highlightedSellers.length}</span>
+          </header>
+          <RadarChart
+            rows={highlightedSellers}
+            referenceRows={sellers}
+            emptyMessage="Sin vendedores con actividad para construir el radar."
+          />
+          <p className="radar-chart-note">
+            Se comparan hasta tres vendedores ordenados por monto vendido,
+            respetando los filtros de la página.
+          </p>
+        </section>
       )}
 
       {status === "success" && (
