@@ -584,7 +584,10 @@ function Dashboard() {
       label: "Período actual",
       montoVendido: summary.montos?.vendidoBruto ?? 0,
       ventas: summary.ventas?.total ?? 0,
-      cotizaciones: summary.cotizaciones?.total ?? 0,
+      cotizaciones: performance.current.tiendas.reduce(
+        (sum, row) => sum + Number(row.cotizaciones || 0),
+        0
+      ),
       conversionPct: summary.conversion?.resueltasPct ?? null,
       ticketPromedio: summary.montos?.ticketPromedioBruto ?? 0,
     };
@@ -607,7 +610,7 @@ function Dashboard() {
         ticketPromedio: previous.ticketPromedioBruto ?? 0,
       },
     ];
-  }, [summary, performance.previous]);
+  }, [summary, performance.current, performance.previous]);
 
   return (
     <div className="page executive-dashboard">
