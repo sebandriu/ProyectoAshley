@@ -134,7 +134,7 @@ function RadarChart({ rows = [], referenceRows, emptyMessage }) {
         <desc id={descriptionId}>
           Radar con cinco indicadores normalizados de cero a cien:
           monto vendido, ventas válidas, cotizaciones, cierre OF y ticket promedio.
-          Los valores originales se indican en la leyenda y al pasar por los puntos.
+          Los valores originales están disponibles en una tabla accesible y al pasar por los puntos.
         </desc>
 
         {[20, 40, 60, 80, 100].map((level) => (
