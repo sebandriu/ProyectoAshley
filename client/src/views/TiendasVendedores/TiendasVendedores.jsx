@@ -235,6 +235,7 @@ function TiendasVendedores() {
               ? ` (${data.fechaReferenciaActividad})`
               : ""}. No vender durante dos semanas no los excluye.
             Esto no certifica vigencia del contrato laboral.
+            {filtered && " La actividad reciente se calcula sobre todas las categorías, independientemente de este filtro."}
           </p>
           {recentSellers.length > 0 ? (
             <div className="seller-activity-list">
