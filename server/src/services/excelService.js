@@ -69,11 +69,11 @@ function validateV3Headers(headers) {
     ["Cantidad Pendiente", "OpenQty"],
     ["Total Neto", "LineTotal"],
     ["Total Bruto", "GTotal"],
-    ["TargetType"],
+    ["TargetType", "Clase de documento de destino"],
     ["TargetEntry"],
-    ["BaseType"],
-    ["BaseEntry"],
-    ["BaseLine"],
+    ["BaseType", "Clase de documento base"],
+    ["BaseEntry", "Clave interna de documento base", "ID interno de documento base"],
+    ["BaseLine", "Línea base", "Linea base"],
   ];
 
   const missing = required
