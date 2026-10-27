@@ -126,6 +126,14 @@
   color: #343b45;
 }
 
+.radar-leader-label {
+  display: block;
+  margin-top: 3px;
+  color: #387d65;
+  font-size: 9px;
+  font-weight: 650;
+}
+
 .radar-metric-track {
   margin-top: 6px;
   width: 100%;
