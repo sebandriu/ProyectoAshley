@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 
 import { getSalesAnalytics } from "../../services/api";
 import ProductScopeFilters from "../../components/ProductScopeFilters/ProductScopeFilters";
+import Pagination from "../../components/ProductScopeFilters/Pagination";
 
 const currency = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -115,6 +116,8 @@ function Ventas() {
     montoEsFiltrado: false,
   });
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
   const [sort, setSort] = useState({
     key: "fecha",
     direction: "desc",
@@ -146,10 +149,13 @@ function Ventas() {
         undefined,
       categoriaGeneral: searchParams.get("categoriaGeneral") || undefined,
       codigoAshley: searchParams.get("codigoAshley") || undefined,
+      page,
       orderBy: sort.key,
       orderDir: sort.direction,
     };
-  }, [searchParams, sort]);
+  }, [searchParams, sort, page]);
+
+  useEffect(() => { setPage(1); }, [searchParams]);
 
   useEffect(() => {
     let active = true;
@@ -161,6 +167,7 @@ function Ventas() {
         if (!active) return;
 
         setData(response.ventas ?? []);
+        setPagination(response.paginacion ?? null);
         setProductSummary(response.resumenProductos ?? []);
         setSummary(
           response.resumen ?? {
@@ -193,6 +200,7 @@ function Ventas() {
     : 0;
 
   function handleSort(key, defaultDirection) {
+    setPage(1);
     setSort((current) => {
       if (current.key === key) {
         return {
@@ -304,7 +312,7 @@ Top {productBreakdown.length}
             <span className="panel-eyebrow">Detalle comercial</span>
             <h2>Ventas</h2>
           </div>
-          <span className="module-count">{data.length} documentos mostrados · máximo 500</span>
+          <span className="module-count">{pagination?.total ?? 0} documentos encontrados</span>
         </header>
 
         {hasProductFilter && (
@@ -489,6 +497,7 @@ Top {productBreakdown.length}
               </tbody>
             </table>
             </div>
+            <Pagination data={pagination} onChange={setPage} />
           </details>
         )}
       </section>
