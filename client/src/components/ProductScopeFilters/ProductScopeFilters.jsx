@@ -1,20 +1,22 @@
 import { useEffect, useId, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import { getAnalyticsFilters, searchProductCodes } from "../../services/api";
+import {
+  getAnalyticsFilters,
+  getAshleyCodeOptions,
+} from "../../services/api";
 import "./ProductScopeFilters.css";
 
-// Comparte filtros entre Cotizaciones, Ventas, Productos y Rendimiento.
-// CodigoAshley es un identificador, no una segunda categoría comercial.
+// Filtros comunes de Cotizaciones, Ventas, Productos y Tiendas/Vendedores.
+// Las dos listas provienen de PostgreSQL, sin introducir códigos manuales.
 function ProductScopeFilters() {
   const [params, setParams] = useSearchParams();
   const [categories, setCategories] = useState([]);
-  const [draft, setDraft] = useState(params.get("codigoAshley") || "");
-  const [suggestions, setSuggestions] = useState([]);
+  const [codes, setCodes] = useState([]);
+  const [codeLoading, setCodeLoading] = useState(true);
   const [error, setError] = useState("");
   const categoryId = useId();
   const ashleyId = useId();
-  const listId = useId();
   const category = params.get("categoriaGeneral") || "";
   const ashley = params.get("codigoAshley") || "";
 
@@ -24,42 +26,47 @@ function ProductScopeFilters() {
       .then((response) => {
         if (active) setCategories(response.categoriasGenerales ?? []);
       })
-      .catch(() => { if (active) setError("No fue posible cargar las categorías."); });
+      .catch(() => {
+        if (active) setError("No fue posible cargar las categorías.");
+      });
     return () => { active = false; };
   }, []);
 
-  useEffect(() => { setDraft(ashley); }, [ashley]);
-
   useEffect(() => {
-    if (draft.trim().length < 2 || draft.trim() === ashley) {
-      setSuggestions([]);
-      return;
-    }
-
     let active = true;
-    const timer = setTimeout(() => {
-      searchProductCodes(draft.trim(), 10)
-        .then((data) => {
-          if (active) {
-            setSuggestions(
-              [...new Set((data.productos ?? []).map((p) => p.codigoAshley).filter(Boolean))]
-            );
-          }
-        })
-        .catch(() => { if (active) setSuggestions([]); });
-    }, 250);
+    setCodeLoading(true);
+    setCodes([]);
+    setError("");
 
-    return () => { active = false; clearTimeout(timer); };
-  }, [draft, ashley]);
+    getAshleyCodeOptions(category)
+      .then((response) => {
+        if (active) setCodes(response.codigos ?? []);
+      })
+      .catch(() => {
+        if (active) setError("No fue posible cargar los códigos Ashley.");
+      })
+      .finally(() => {
+        if (active) setCodeLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [category]);
 
   function update(key, value) {
     setParams((current) => {
       const next = new URLSearchParams(current);
       if (value) next.set(key, value);
       else next.delete(key);
+
+      // El código elegido en otra categoría ya no es una selección válida.
+      if (key === "categoriaGeneral") next.delete("codigoAshley");
       return next;
     });
   }
+
+  const selectedCodeNotListed =
+    !codeLoading && ashley &&
+    !codes.some((item) => item.codigo === ashley);
 
   return (
     <section className="product-scope" aria-label="Filtrar productos por categoría o código Ashley">
@@ -71,37 +78,39 @@ function ProductScopeFilters() {
           onChange={(event) => update("categoriaGeneral", event.target.value)}
         >
           <option value="">Todas las categorías</option>
-          {categories.map((item) => <option key={item} value={item}>{item}</option>)}
+          {categories.map((item) => (
+            <option value={item} key={item}>{item}</option>
+          ))}
         </select>
       </div>
 
-      <form className="product-scope-control" onSubmit={(event) => {
-        event.preventDefault();
-        update("codigoAshley", draft.trim());
-      }}>
+      <div className="product-scope-control">
         <label htmlFor={ashleyId}>Código Ashley</label>
-        <div className="product-scope-search">
-          <input
-            id={ashleyId}
-            list={listId}
-            value={draft}
-            placeholder="Buscar código Ashley"
-            onChange={(event) => setDraft(event.target.value)}
-            autoComplete="off"
-          />
-          <datalist id={listId}>
-            {suggestions.map((code) => <option key={code} value={code} />)}
-          </datalist>
-          <button type="submit">Aplicar</button>
-        </div>
-      </form>
+        <select
+          id={ashleyId}
+          value={ashley}
+          onChange={(event) => update("codigoAshley", event.target.value)}
+          disabled={codeLoading}
+        >
+          <option value="">
+            {codeLoading ? "Cargando códigos Ashley..." : "Todos los códigos Ashley"}
+          </option>
+          {selectedCodeNotListed && (
+            <option value={ashley}>{ashley} (no disponible en esta categoría)</option>
+          )}
+          {codes.map((item) => (
+            <option value={item.codigo} key={item.codigo}>
+              {item.codigo}{item.descripcion ? ` · ${item.descripcion.slice(0, 65)}` : ""}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {(category || ashley) && (
         <button
           type="button"
           className="product-scope-clear"
           onClick={() => {
-            setDraft("");
             setParams((current) => {
               const next = new URLSearchParams(current);
               next.delete("categoriaGeneral");
@@ -110,10 +119,10 @@ function ProductScopeFilters() {
             });
           }}
         >
-          Limpiar filtros de categoría
+          Limpiar filtros de categoría y código
         </button>
       )}
-      {error && <small className="product-scope-error">{error}</small>}
+      {error && <small className="product-scope-error" role="status">{error}</small>}
     </section>
   );
 }
