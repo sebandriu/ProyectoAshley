@@ -1,0 +1,127 @@
+.product-scope {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 10px 15px;
+  padding: 12px 14px;
+  border: 1px solid #e6e8ea;
+  border-radius: 11px;
+  background: #fff;
+  margin-bottom: 12px;
+}
+
+.product-scope-control {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: min(100%, 195px);
+  flex: 0 1 280px;
+  margin: 0;
+}
+
+.product-scope-control label {
+  font-size: 11px;
+  font-weight: 650;
+  color: #656d78;
+}
+
+.product-scope-control select,
+.product-scope-control input {
+  height: 35px;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #dfe3e8;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fff;
+  color: #333b43;
+  font-size: 12px;
+}
+
+.product-scope-search {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.product-scope-search button,
+.product-scope-clear {
+  height: 35px;
+  border: 1px solid #e8dfd5;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fff8ef;
+  color: #a75e18;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.product-scope-clear {
+  background: transparent;
+  color: #737b83;
+  border-color: #e6e8eb;
+}
+
+.product-scope-control :focus-visible,
+.product-scope button:focus-visible {
+  outline: 2px solid #f7941d;
+  outline-offset: 2px;
+}
+
+.product-scope-error {
+  color: #ba504a;
+  font-size: 10px;
+  width: 100%;
+}
+
+.module-insight {
+  margin: 10px 0 14px;
+  padding: 11px 14px;
+  background: #fffaf3;
+  border-left: 3px solid #f4a344;
+  color: #585f68;
+  border-radius: 0 8px 8px 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.module-insight strong { color: #363d44; }
+
+.module-details { margin-top: 12px; }
+.module-details > summary {
+  cursor: pointer;
+  padding: 11px 13px;
+  border-radius: 8px;
+  background: #f6f7f9;
+  color: #5b636d;
+  font-size: 12px;
+  font-weight: 650;
+  list-style-position: inside;
+}
+.module-details[open] > summary { margin-bottom: 12px; }
+
+.module-compact-list {
+  display: grid;
+  gap: 7px;
+  margin: 10px 0;
+}
+.module-compact-list > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #eaecef;
+  color: #646d77;
+  font-size: 11px;
+}
+.module-compact-list strong {
+  text-align: right;
+  color: #343b43;
+}
+.module-subtitle {
+  margin: 8px 0;
+  color: #7a818a;
+  font-size: 11px;
+}
