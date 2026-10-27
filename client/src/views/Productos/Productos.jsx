@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { getProductAnalytics } from "../../services/api";
+import ProductScopeFilters from "../../components/ProductScopeFilters/ProductScopeFilters";
 
 const number = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 });
 const currency = new Intl.NumberFormat("es-CL", {
@@ -84,7 +85,6 @@ function Productos() {
   const [status, setStatus] = useState("loading");
   const [data, setData] = useState({ resumen: {}, productos: [] });
   const [error, setError] = useState("");
-  const [category, setCategory] = useState("");
   const [sort, setSort] = useState({
     key: "unidadesCotizadas",
     direction: "desc",
@@ -101,6 +101,8 @@ function Productos() {
         searchParams.get("productos") ||
         searchParams.get("producto") ||
         undefined,
+      categoriaGeneral: searchParams.get("categoriaGeneral") || undefined,
+      codigoAshley: searchParams.get("codigoAshley") || undefined,
     };
   }, [searchParams]);
 
@@ -126,68 +128,20 @@ function Productos() {
     };
   }, [filters]);
 
-  const categories = useMemo(
-    () =>
-      [...new Set(
-        (data.productos ?? []).map(
-          (product) => product.categoriaGeneral || "SIN CATEGORIA"
-        )
-      )].sort((a, b) => a.localeCompare(b, "es")),
-    [data.productos]
+  const products = useMemo(
+    () => [...(data.productos ?? [])].sort(
+      (a, b) => compareValues(a[sort.key], b[sort.key], sort.direction)
+    ),
+    [data.productos, sort]
   );
-
-  useEffect(() => {
-    if (category && !categories.includes(category)) {
-      setCategory("");
-    }
-  }, [category, categories]);
-
-  const products = useMemo(() => {
-    const rows = (data.productos ?? []).filter(
-      (product) =>
-        !category ||
-        (product.categoriaGeneral || "SIN CATEGORIA") === category
-    );
-
-    return [...rows].sort((a, b) =>
-      compareValues(a[sort.key], b[sort.key], sort.direction)
-    );
-  }, [data.productos, category, sort]);
-
-  const summary = useMemo(() => {
-    if (!category) return data.resumen ?? {};
-
-    const totals = products.reduce(
-      (acc, product) => {
-        acc.unidadesCotizadas += Number(product.unidadesCotizadas || 0);
-        acc.unidadesConvertidas += Number(product.unidadesConvertidas || 0);
-        acc.demandaNoConvertida += Number(product.demandaNoConvertida || 0);
-        acc.unidadesVendidas += Number(product.unidadesVendidas || 0);
-        acc.montoCotizado += Number(product.montoCotizado || 0);
-        acc.montoVendido += Number(product.montoVendido || 0);
-        return acc;
-      },
-      {
-        unidadesCotizadas: 0,
-        unidadesConvertidas: 0,
-        demandaNoConvertida: 0,
-        unidadesVendidas: 0,
-        montoCotizado: 0,
-        montoVendido: 0,
-      }
-    );
-
-    totals.conversionUnidadesPct =
-      totals.unidadesCotizadas > 0
-        ? Number(
-            (
-              (totals.unidadesConvertidas / totals.unidadesCotizadas) *
-              100
-            ).toFixed(2)
-          )
-        : null;
-    return totals;
-  }, [category, data.resumen, products]);
+  const summary = data.resumen ?? {};
+  const opportunities = [...products]
+    .filter((product) => Number(product.demandaNoConvertida) > 0)
+    .sort((a, b) => b.demandaNoConvertida - a.demandaNoConvertida)
+    .slice(0, 5);
+  const topSeller = [...products].sort(
+    (a, b) => b.montoVendido - a.montoVendido
+  )[0];
 
   function handleSort(key, numericColumn) {
     setSort((current) => {
@@ -208,6 +162,7 @@ function Productos() {
 
   return (
     <div className="page">
+      <ProductScopeFilters />
       <section className="module-summary-grid">
         <article className="summary-card">
           <span>Unidades cotizadas</span>
@@ -231,6 +186,37 @@ function Productos() {
         </article>
       </section>
 
+      {status === "success" && products.length > 0 && (
+        <section className="panel module-panel">
+          <header className="module-header">
+            <div>
+              <span className="panel-eyebrow">Prioridades</span>
+              <h2>Demanda por recuperar</h2>
+            </div>
+            <span className="module-count">Top 5</span>
+          </header>
+          {opportunities.length ? (
+            <div className="module-compact-list">
+              {opportunities.map((item) => (
+                <div key={item.codigo}>
+                  <span>{item.descripcion || item.codigo}
+                    {" · "}<small>{item.codigoAshley || item.codigo}</small>
+                  </span>
+                  <strong>{number.format(item.demandaNoConvertida)} unid. no convertidas</strong>
+                </div>
+              ))}
+            </div>
+          ) : <p className="module-subtitle">No hay demanda no convertida en el período.</p>}
+          {topSeller && (
+            <p className="module-subtitle">
+              Mayor monto vendido: <strong>{topSeller.descripcion || topSeller.codigo}</strong>
+              {" · "}{currency.format(topSeller.montoVendido)}.
+              La demanda no convertida proviene de líneas de OF, no representa stock disponible.
+            </p>
+          )}
+        </section>
+      )}
+
       <section className="panel module-panel">
         <header className="module-header">
           <div>
@@ -239,22 +225,6 @@ function Productos() {
           </div>
           <span className="module-count">{products.length} productos</span>
         </header>
-
-        {status === "success" && categories.length > 0 && (
-          <div className="product-category-filter">
-            <label htmlFor="product-category">Categoría general</label>
-            <select
-              id="product-category"
-              value={category}
-              onChange={(event) => setCategory(event.target.value)}
-            >
-              <option value="">Todas las categorías</option>
-              {categories.map((item) => (
-                <option value={item} key={item}>{item}</option>
-              ))}
-            </select>
-          </div>
-        )}
 
         {status === "loading" && (
           <div className="module-state">Analizando productos...</div>
@@ -271,7 +241,9 @@ function Productos() {
         )}
 
         {status === "success" && products.length > 0 && (
-          <div className="table-scroll">
+          <details className="module-details">
+            <summary>Ver detalle de los {products.length} productos</summary>
+            <div className="table-scroll">
             <table className="analytics-table">
               <thead>
                 <tr>
@@ -374,7 +346,8 @@ function Productos() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </details>
         )}
       </section>
     </div>
