@@ -92,7 +92,7 @@ function normalizeValueForHeader(header, value) {
 
   if (
     normalizedValue !== null &&
-    ["codigo", "itemcode"].includes(normalizedHeader)
+    ["codigo", "itemcode", "codigoashley"].includes(normalizedHeader)
   ) {
     return String(normalizedValue);
   }

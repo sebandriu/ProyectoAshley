@@ -84,6 +84,7 @@ function Productos() {
   const [status, setStatus] = useState("loading");
   const [data, setData] = useState({ resumen: {}, productos: [] });
   const [error, setError] = useState("");
+  const [category, setCategory] = useState("");
   const [sort, setSort] = useState({
     key: "unidadesCotizadas",
     direction: "desc",
@@ -125,17 +126,68 @@ function Productos() {
     };
   }, [filters]);
 
-  const summary = data.resumen ?? {};
+  const categories = useMemo(
+    () =>
+      [...new Set(
+        (data.productos ?? []).map(
+          (product) => product.categoriaGeneral || "SIN CATEGORIA"
+        )
+      )].sort((a, b) => a.localeCompare(b, "es")),
+    [data.productos]
+  );
+
+  useEffect(() => {
+    if (category && !categories.includes(category)) {
+      setCategory("");
+    }
+  }, [category, categories]);
 
   const products = useMemo(() => {
-    const rows = [...(data.productos ?? [])];
-
-    rows.sort((a, b) =>
-      compareValues(a[sort.key], b[sort.key], sort.direction)
+    const rows = (data.productos ?? []).filter(
+      (product) =>
+        !category ||
+        (product.categoriaGeneral || "SIN CATEGORIA") === category
     );
 
-    return rows;
-  }, [data.productos, sort]);
+    return [...rows].sort((a, b) =>
+      compareValues(a[sort.key], b[sort.key], sort.direction)
+    );
+  }, [data.productos, category, sort]);
+
+  const summary = useMemo(() => {
+    if (!category) return data.resumen ?? {};
+
+    const totals = products.reduce(
+      (acc, product) => {
+        acc.unidadesCotizadas += Number(product.unidadesCotizadas || 0);
+        acc.unidadesConvertidas += Number(product.unidadesConvertidas || 0);
+        acc.demandaNoConvertida += Number(product.demandaNoConvertida || 0);
+        acc.unidadesVendidas += Number(product.unidadesVendidas || 0);
+        acc.montoCotizado += Number(product.montoCotizado || 0);
+        acc.montoVendido += Number(product.montoVendido || 0);
+        return acc;
+      },
+      {
+        unidadesCotizadas: 0,
+        unidadesConvertidas: 0,
+        demandaNoConvertida: 0,
+        unidadesVendidas: 0,
+        montoCotizado: 0,
+        montoVendido: 0,
+      }
+    );
+
+    totals.conversionUnidadesPct =
+      totals.unidadesCotizadas > 0
+        ? Number(
+            (
+              (totals.unidadesConvertidas / totals.unidadesCotizadas) *
+              100
+            ).toFixed(2)
+          )
+        : null;
+    return totals;
+  }, [category, data.resumen, products]);
 
   function handleSort(key, numericColumn) {
     setSort((current) => {
@@ -188,6 +240,22 @@ function Productos() {
           <span className="module-count">{products.length} productos</span>
         </header>
 
+        {status === "success" && categories.length > 0 && (
+          <div className="product-category-filter">
+            <label htmlFor="product-category">Categoría general</label>
+            <select
+              id="product-category"
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
+            >
+              <option value="">Todas las categorías</option>
+              {categories.map((item) => (
+                <option value={item} key={item}>{item}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {status === "loading" && (
           <div className="module-state">Analizando productos...</div>
         )}
@@ -210,6 +278,18 @@ function Productos() {
                   <SortableHeader
                     label="Código"
                     sortKey="codigo"
+                    sort={sort}
+                    onSort={handleSort}
+                  />
+                  <SortableHeader
+                    label="Código Ashley"
+                    sortKey="codigoAshley"
+                    sort={sort}
+                    onSort={handleSort}
+                  />
+                  <SortableHeader
+                    label="Categoría"
+                    sortKey="categoriaGeneral"
                     sort={sort}
                     onSort={handleSort}
                   />
@@ -267,6 +347,8 @@ function Productos() {
                 {products.map((product) => (
                   <tr key={product.codigo}>
                     <td>{product.codigo}</td>
+                    <td>{product.codigoAshley || "—"}</td>
+                    <td>{product.categoriaGeneral || "SIN CATEGORIA"}</td>
                     <td>{product.descripcion}</td>
                     <td className="numeric">
                       {number.format(product.unidadesCotizadas)}
