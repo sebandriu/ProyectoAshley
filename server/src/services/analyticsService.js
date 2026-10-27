@@ -53,13 +53,38 @@ function normalizeSellerNames(value) {
   return normalizeList(value);
 }
 
+function hasLineSelection(applied) {
+  return applied.productos.length > 0 ||
+    Boolean(applied.categoriaGeneral || applied.codigoAshley);
+}
+
+// Una misma condición reutilizada por los listados y los totales.
+// Los importes filtrados provienen de las líneas, no del documento completo.
+function linePredicate(alias, applied, values) {
+  const terms = [`${alias}.tipo_linea = 'PRODUCTO'`];
+  if (applied.productos.length) {
+    values.push(applied.productos);
+    terms.push(`${alias}.codigo_item = ANY($${values.length}::text[])`);
+  }
+  if (applied.categoriaGeneral) {
+    values.push(applied.categoriaGeneral);
+    terms.push(
+      `COALESCE(NULLIF(BTRIM(${alias}.categoria_general), ''), 'SIN CATEGORIA') = $${values.length}`
+    );
+  }
+  if (applied.codigoAshley) {
+    values.push(applied.codigoAshley);
+    terms.push(`UPPER(BTRIM(COALESCE(${alias}.codigo_ashley, ''))) = UPPER($${values.length})`);
+  }
+  return terms.join(" AND ");
+}
+
 function buildFilters(filters = {}, { product = false } = {}) {
   const conditions = [];
   const values = [];
 
   const desde = validateDate(filters.desde, "desde");
   const hasta = validateDate(filters.hasta, "hasta");
-
   if (desde && hasta && desde > hasta) {
     throw new Error("La fecha desde no puede ser posterior a la fecha hasta.");
   }
@@ -68,58 +93,46 @@ function buildFilters(filters = {}, { product = false } = {}) {
     values.push(desde);
     conditions.push(`d.fecha >= $${values.length}::date`);
   }
-
   if (hasta) {
     values.push(hasta);
     conditions.push(`d.fecha <= $${values.length}::date`);
   }
-
   if (filters.tienda) {
     values.push(String(filters.tienda).trim());
     conditions.push(`d.tienda = $${values.length}`);
   }
 
-  const sellerNames = normalizeSellerNames(
-    filters.vendedores ?? filters.vendedor
-  );
+  const applied = {
+    desde,
+    hasta,
+    tienda: filters.tienda ? String(filters.tienda).trim() : null,
+    vendedores: normalizeSellerNames(filters.vendedores ?? filters.vendedor),
+    productos: normalizeProductCodes(filters.productos ?? filters.producto),
+    categoriaGeneral: String(filters.categoriaGeneral ?? "").trim(),
+    codigoAshley: String(filters.codigoAshley ?? "").trim(),
+  };
 
-  if (sellerNames.length > 0) {
-    values.push(sellerNames);
-    conditions.push("d.vendedor = ANY($" + values.length + "::text[])");
+  if (applied.vendedores.length) {
+    values.push(applied.vendedores);
+    conditions.push(`d.vendedor = ANY($${values.length}::text[])`);
   }
-
-  const productCodes = normalizeProductCodes(
-    filters.productos ?? filters.producto
-  );
-
-  if (product && productCodes.length > 0) {
-    values.push(productCodes);
-    conditions.push(`
-      EXISTS (
-        SELECT 1
-        FROM detalle_documento fdd
-        WHERE fdd.documento_id = d.id
-          AND fdd.tipo_linea = 'PRODUCTO'
-          AND fdd.codigo_item = ANY($${values.length}::text[])
-      )
-    `);
+  if (product && hasLineSelection(applied)) {
+    const match = linePredicate("fdd", applied, values);
+    conditions.push(`EXISTS (
+      SELECT 1 FROM detalle_documento fdd
+      WHERE fdd.documento_id = d.id AND ${match}
+    )`);
   }
 
   return {
     where: conditions.length ? `WHERE ${conditions.join(" AND ")}` : "",
     values,
-    applied: {
-      desde,
-      hasta,
-      tienda: filters.tienda ? String(filters.tienda).trim() : null,
-      vendedores: sellerNames,
-      productos: productCodes,
-    },
+    applied,
   };
 }
 
 export async function getAnalyticsFilterOptions() {
-  const [periodResult, storesResult] = await Promise.all([
+  const [periodResult, storesResult, categoriesResult] = await Promise.all([
     pool.query(
       `SELECT
          TO_CHAR(MIN(fecha), 'YYYY-MM-DD') AS desde,
@@ -133,6 +146,13 @@ export async function getAnalyticsFilterOptions() {
          AND BTRIM(tienda) <> ''
        ORDER BY tienda`
     ),
+    pool.query(
+      `SELECT DISTINCT
+         COALESCE(NULLIF(BTRIM(categoria_general), ''), 'SIN CATEGORIA') AS categoria
+       FROM detalle_documento
+       WHERE tipo_linea = 'PRODUCTO'
+       ORDER BY categoria`
+    ),
   ]);
 
   return {
@@ -141,6 +161,7 @@ export async function getAnalyticsFilterOptions() {
       hasta: periodResult.rows[0]?.hasta ?? null,
     },
     tiendas: storesResult.rows.map((row) => row.tienda).filter(Boolean),
+    categoriasGenerales: categoriesResult.rows.map((row) => row.categoria),
   };
 }
 
@@ -157,12 +178,16 @@ export async function searchProductCodes(query, limit = 8) {
     `
       SELECT
         dd.codigo_item AS codigo,
-        MAX(dd.descripcion) AS descripcion
+        MAX(dd.descripcion) AS descripcion,
+        MAX(NULLIF(BTRIM(dd.codigo_ashley), '')) AS codigo_ashley
       FROM detalle_documento dd
       WHERE dd.tipo_linea = 'PRODUCTO'
         AND dd.codigo_item IS NOT NULL
         AND BTRIM(dd.codigo_item) <> ''
-        AND dd.codigo_item ILIKE '%' || $1 || '%'
+        AND (
+          dd.codigo_item ILIKE '%' || $1 || '%'
+          OR dd.codigo_ashley ILIKE '%' || $1 || '%'
+        )
       GROUP BY dd.codigo_item
       ORDER BY
         CASE
@@ -180,6 +205,7 @@ export async function searchProductCodes(query, limit = 8) {
   return result.rows.map((row) => ({
     codigo: row.codigo,
     descripcion: row.descripcion || row.codigo,
+    codigoAshley: row.codigo_ashley,
   }));
 }
 
@@ -249,15 +275,8 @@ export async function getProductAnalytics(filters = {}) {
     "BTRIM(dd.codigo_item) <> ''",
   ];
 
-  const productCodes = normalizeProductCodes(
-    filters.productos ?? filters.producto
-  );
-
-  if (productCodes.length > 0) {
-    values.push(productCodes);
-    productConditions.push(
-      `dd.codigo_item = ANY($${values.length}::text[])`
-    );
+  if (hasLineSelection(applied)) {
+    productConditions.push(linePredicate("dd", applied, values));
   }
 
   const documentWhere = where
