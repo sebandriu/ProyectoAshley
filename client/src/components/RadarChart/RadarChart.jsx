@@ -257,9 +257,9 @@ function RadarChart({ rows = [], referenceRows, emptyMessage }) {
       {comparisons.length > 0 && (
         <div className="radar-chart-insights">
           {comparisons
-            .slice()
-            .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
-            .slice(0, 3)
+            .filter((change) =>
+              ["Monto vendido", "Cierre OF", "Ticket promedio"].includes(change.label)
+            )
             .map((change) => (
               <div className="radar-insight" key={change.label}>
                 <span>{change.label}</span>
