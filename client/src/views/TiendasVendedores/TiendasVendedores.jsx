@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import RadarChart from "../../components/RadarChart/RadarChart";
+import ProductScopeFilters from "../../components/ProductScopeFilters/ProductScopeFilters";
 import { getPerformanceAnalytics } from "../../services/api";
 
 const currency = new Intl.NumberFormat("es-CL", {
@@ -32,6 +33,7 @@ function PerformanceTable({ rows, type }) {
             <th>{type === "store" ? "Tienda" : "Vendedor"}</th>
             {type === "seller" && <th>Tienda</th>}
             <th className="numeric">Cotizaciones</th>
+            <th className="numeric">OF pendientes</th>
             <th className="numeric">Ventas</th>
             <th className="numeric">Cierre OF</th>
             <th className="numeric">Monto vendido</th>
@@ -44,6 +46,7 @@ function PerformanceTable({ rows, type }) {
               <td>{type === "store" ? row.tienda : row.vendedor}</td>
               {type === "seller" && <td>{row.tienda ?? "—"}</td>}
               <td className="numeric">{row.cotizaciones}</td>
+              <td className="numeric">{row.pendientes}</td>
               <td className="numeric">{row.ventas}</td>
               <td className="numeric">{formatPercent(row.conversionPct)}</td>
               <td className="numeric">{currency.format(row.montoVendido)}</td>
@@ -81,6 +84,8 @@ function TiendasVendedores() {
         searchParams.get("vendedores") ||
         searchParams.get("vendedor") ||
         undefined,
+      categoriaGeneral: searchParams.get("categoriaGeneral") || undefined,
+      codigoAshley: searchParams.get("codigoAshley") || undefined,
     };
   }, [searchParams]);
 
@@ -126,9 +131,15 @@ function TiendasVendedores() {
     (sum, store) => sum + Number(store.montoVendido || 0),
     0
   );
+  const topStore = stores[0];
+  const storePending = [...stores].sort((a, b) => b.pendientes - a.pendientes)[0];
+  const topSeller = sellers.find((seller) => seller.actividadReciente && seller.ventas > 0);
+  const recentSellersShown = recentSellers.slice(0, 8);
+  const filtered = Boolean(filters.categoriaGeneral || filters.codigoAshley);
 
   return (
     <div className="page">
+      <ProductScopeFilters />
       <section className="module-summary-grid">
         <article className="summary-card">
           <span>Tiendas analizadas</span>
@@ -147,6 +158,34 @@ function TiendasVendedores() {
           <strong>{currency.format(totalSold)}</strong>
         </article>
       </section>
+
+      {status === "success" && stores.length > 0 && (
+        <div className="module-insight">
+          {topStore && totalSold > 0 && (
+            <div>
+              <strong>Tienda líder: {topStore.tienda}</strong>
+              {" · "}{currency.format(topStore.montoVendido)}
+              {" · "}{formatPercent((topStore.montoVendido / totalSold) * 100)}
+              {" del monto del período."}
+            </div>
+          )}
+          {topSeller && (
+            <div>
+              <strong>Vendedor destacado con actividad reciente: {topSeller.vendedor}</strong>
+              {" · "}{currency.format(topSeller.montoVendido)}
+              {" · "}{topSeller.ventas} ventas.
+            </div>
+          )}
+          {storePending?.pendientes > 0 && (
+            <div>
+              <strong>Mayor volumen de OF pendientes: {storePending.tienda}</strong>
+              {" · "}{storePending.pendientes} cotizaciones.
+            </div>
+          )}
+          {filtered && <div>Los montos corresponden solo a las líneas coincidentes;
+            la cantidad de documentos indica cuántos contienen esos productos.</div>}
+        </div>
+      )}
 
       {status === "loading" && (
         <section className="panel module-state">
@@ -199,13 +238,27 @@ function TiendasVendedores() {
           </p>
           {recentSellers.length > 0 ? (
             <div className="seller-activity-list">
-              {recentSellers.map((row) => (
+              {recentSellersShown.map((row) => (
                 <span key={`${row.tienda}|${row.vendedor}`}>
                   <strong>{row.vendedor}</strong>
                   {" · "}{row.tienda || "Sin tienda"}
                   {" · última venta "}{row.ultimaVenta}
                 </span>
               ))}
+              {recentSellers.length > 8 && (
+                <details className="module-details">
+                  <summary>Ver los {recentSellers.length - 8} vendedores restantes</summary>
+                  <div className="seller-activity-list">
+                    {recentSellers.slice(8).map((row) => (
+                      <span key={`${row.tienda}|${row.vendedor}`}>
+                        <strong>{row.vendedor}</strong>
+                        {" · "}{row.tienda || "Sin tienda"}
+                        {" · última venta "}{row.ultimaVenta}
+                      </span>
+                    ))}
+                  </div>
+                </details>
+              )}
             </div>
           ) : (
             <p className="seller-activity-description">
@@ -216,7 +269,9 @@ function TiendasVendedores() {
       )}
 
       {status === "success" && (
-        <section className="performance-grid">
+        <details className="module-details">
+          <summary>Ver rendimiento completo por tienda y vendedor</summary>
+          <section className="performance-grid">
           <article className="panel module-panel">
             <header className="module-header">
               <div>
@@ -238,7 +293,8 @@ function TiendasVendedores() {
             </header>
             <PerformanceTable rows={sellers} type="seller" />
           </article>
-        </section>
+          </section>
+        </details>
       )}
     </div>
   );
