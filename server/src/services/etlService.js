@@ -218,6 +218,12 @@ function parseLine(accessor, rowNumber) {
   const codigoItem = toText(
     accessor("Código", "Codigo", "ItemCode")
   );
+  const codigoAshley = toText(
+    accessor("CodigoAshley", "Código Ashley", "Codigo Ashley")
+  );
+  const categoriaGeneral = toText(
+    accessor("CategoriaGeneral", "Categoría General", "Categoria General")
+  );
 
   const tipoVentaDestino =
     toText(accessor("Tipo Venta Destino"))?.toUpperCase() ?? null;
@@ -249,6 +255,8 @@ function parseLine(accessor, rowNumber) {
   return {
     lineaSap,
     codigoItem,
+    codigoAshley,
+    categoriaGeneral,
     descripcion: toText(
       accessor("Descripción", "Descripcion", "Dscription")
     ),
@@ -531,6 +539,8 @@ async function upsertLinesBatch(client, lines) {
     documento_id: documentId,
     linea_sap: line.lineaSap,
     codigo_item: line.codigoItem,
+    codigo_ashley: line.codigoAshley,
+    categoria_general: line.categoriaGeneral,
     descripcion: line.descripcion,
     cantidad: line.cantidad,
     cantidad_abierta: line.cantidadAbierta,
@@ -557,6 +567,8 @@ async function upsertLinesBatch(client, lines) {
         documento_id,
         linea_sap,
         codigo_item,
+        codigo_ashley,
+        categoria_general,
         descripcion,
         cantidad,
         cantidad_abierta,
@@ -581,6 +593,8 @@ async function upsertLinesBatch(client, lines) {
         x.documento_id,
         x.linea_sap,
         x.codigo_item,
+        x.codigo_ashley,
+        x.categoria_general,
         x.descripcion,
         x.cantidad,
         x.cantidad_abierta,
@@ -604,6 +618,8 @@ async function upsertLinesBatch(client, lines) {
         documento_id BIGINT,
         linea_sap INTEGER,
         codigo_item TEXT,
+        codigo_ashley TEXT,
+        categoria_general TEXT,
         descripcion TEXT,
         cantidad NUMERIC,
         cantidad_abierta NUMERIC,
@@ -627,6 +643,8 @@ async function upsertLinesBatch(client, lines) {
      ON CONFLICT (documento_id, linea_sap)
      DO UPDATE SET
         codigo_item = EXCLUDED.codigo_item,
+        codigo_ashley = EXCLUDED.codigo_ashley,
+        categoria_general = EXCLUDED.categoria_general,
         descripcion = EXCLUDED.descripcion,
         cantidad = EXCLUDED.cantidad,
         cantidad_abierta = EXCLUDED.cantidad_abierta,
