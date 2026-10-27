@@ -161,7 +161,7 @@ function variationMeta(value, unit = "%") {
     return {
       tone: "negative",
       Icon: TrendingDown,
-      text: `↓ ${absolute}${unit} vs período anterior`,
+      text: `↓ ${absolute}${unit} vs mismo período del año anterior`,
     };
   }
 
@@ -176,7 +176,7 @@ function variationMeta(value, unit = "%") {
   return {
     tone: "neutral",
     Icon: Minus,
-    text: `Sin variación vs período anterior`,
+    text: `Sin variación interanual`,
   };
 }
 
@@ -266,7 +266,7 @@ function SalesTrendChart({ actual = [], anterior = [], granularity = "day" }) {
       <div className="executive-chart-legend">
         <span><i className="executive-legend-line current" />Actual</span>
         {anterior.length > 0 && (
-          <span><i className="executive-legend-line previous" />Período anterior</span>
+          <span><i className="executive-legend-line previous" />Año anterior</span>
         )}
       </div>
 
@@ -274,7 +274,7 @@ function SalesTrendChart({ actual = [], anterior = [], granularity = "day" }) {
         viewBox={`0 0 ${width} ${height}`}
         className="executive-sales-svg"
         role="img"
-        aria-label="Evolución del monto vendido comparada con el período anterior"
+        aria-label="Evolución del monto vendido comparada con el mismo período del año anterior"
       >
         {Array.from({ length: 5 }).map((_, index) => {
           const ratio = index / 4;
@@ -358,7 +358,11 @@ function worstDimensionDrop(currentPerformance, previousPerformance, selectedSto
   previousRows.forEach((previousRow) => {
     const previousAmount = Number(previousRow.montoVendido || 0);
 
-    if (previousAmount <= 0) return;
+    if (
+      previousAmount <= 0 ||
+      Number(previousRow.ventas || 0) < 3 ||
+      (useSeller && !previousRow.actividadReciente)
+    ) return;
 
     const key = rowKey(previousRow, useSeller);
     const currentRow = currentMap.get(key);
@@ -388,15 +392,16 @@ function buildFocusItems({
 }) {
   const items = [];
   const variations = summary?.comparacion?.variaciones ?? {};
+  const currentAmount = summary?.montos?.vendidoBruto ?? 0;
+  const previousAmount =
+    summary?.comparacion?.valoresAnteriores?.montoVendidoBruto;
 
-  if (Number(variations.montoVendidoPct) < 0) {
+  if (variations.montoVendidoPct != null && variations.montoVendidoPct < -5) {
     items.push({
       key: "sales-amount",
-      title: "Monto vendido",
-      value: `↓ ${formatPercentValue(
-        Math.abs(Number(variations.montoVendidoPct))
-      )}`,
-      detail: "El monto vendido cayó respecto al período comparable anterior.",
+      title: "Monto vendido interanual",
+      value: `↓ ${formatPercentValue(Math.abs(variations.montoVendidoPct))}`,
+      detail: `${formatCurrency(currentAmount)} frente a ${formatCurrency(previousAmount)} en las mismas fechas del año anterior.`,
       tone: "critical",
     });
   }
@@ -407,82 +412,112 @@ function buildFocusItems({
     selectedStore
   );
 
-  if (dimensionDrop) {
+  if (dimensionDrop && dimensionDrop.variation < -10) {
     items.push({
       key: "dimension",
       title: `${dimensionDrop.type}: ${dimensionDrop.label}`,
-      value: `↓ ${formatPercentValue(
-        Math.abs(dimensionDrop.variation)
-      )}`,
-      detail: "Es la mayor caída de monto vendido dentro del nivel analizado.",
+      value: `↓ ${formatPercentValue(Math.abs(dimensionDrop.variation))}`,
+      detail: selectedStore
+        ? "Descenso interanual relevante entre vendedores con ventas recientes. No determina su situación laboral."
+        : "Mayor descenso de ventas entre tiendas con al menos tres ventas en el año anterior.",
       tone: "critical",
     });
   }
 
   const regression = summary?.regresion;
-  const regressionDeviation =
-    regression?.evaluacion?.desviacionPct;
-
+  const deviation = regression?.evaluacion?.desviacionPct;
   if (
     regression?.disponible &&
     regression?.evaluacion?.aplicable &&
-    Number(regression?.r2) >= 0.25 &&
-    Number(regressionDeviation) < -5
+    Number(regression.r2) >= 0.25 &&
+    deviation != null &&
+    deviation < -5
   ) {
     items.push({
       key: "regression",
-      title: "Relación histórica cotización → venta",
-      value: `↓ ${formatPercentValue(
-        Math.abs(Number(regressionDeviation))
-      )}`,
-      detail: `Venta bajo la tendencia histórica para el monto cotizado · R² ${formatDecimal(
-        regression.r2
-      )} · ${regression.observaciones} meses.`,
+      title: "Cotizaciones y ventas históricas",
+      value: `↓ ${formatPercentValue(Math.abs(deviation))}`,
+      detail: `Monto observado bajo la relación histórica · R² ${formatDecimal(regression.r2)} · ${regression.observaciones} meses. Señal, no pronóstico.`,
       tone: "warning",
     });
   }
 
-  const secondary = [
+  const pendingChange = variations.pendientesPct;
+  const pending = summary?.cotizaciones?.pendientes ?? 0;
+  if (pendingChange != null && pendingChange > 10 && pending > 0) {
+    items.push({
+      key: "pending",
+      title: "Ofertas pendientes",
+      value: `↑ ${formatPercentValue(pendingChange)}`,
+      detail: `${formatInteger(pending)} ofertas sin resolver frente a ${formatInteger(
+        summary.comparacion.valoresAnteriores.cotizacionesPendientes
+      )} en el año anterior. Revisar antigüedad antes de concluir retrasos.`,
+      tone: "warning",
+    });
+  }
+
+  const measures = [
     {
       key: "closure",
       value: variations.cierreOfPp,
-      title: "Cierre OF",
+      title: "Tasa de cierre OF",
       unit: " pp",
-      detail: "Menor proporción de OF resueltas terminó en venta.",
+      description: "Menor proporción de ofertas resueltas terminó en venta.",
+      threshold: -2,
     },
     {
       key: "ticket",
       value: variations.ticketPromedioPct,
       title: "Ticket promedio",
       unit: "%",
-      detail: "El valor promedio por documento de venta disminuyó.",
+      description: "Disminuyó el valor promedio de los documentos de venta.",
+      threshold: -5,
     },
     {
       key: "sales-count",
       value: variations.ventasPct,
-      title: "Ventas válidas",
+      title: "Cantidad de ventas",
       unit: "%",
-      detail: "Se registraron menos documentos de venta válidos.",
+      description: "Se emitieron menos documentos de venta válidos que el año pasado.",
+      threshold: -5,
     },
-  ]
-    .filter((item) => Number(item.value) < 0)
-    .sort((a, b) => Number(a.value) - Number(b.value));
+  ];
 
-  for (const item of secondary) {
-    if (items.length >= 3) break;
-
+  for (const metric of measures) {
+    if (metric.value == null || metric.value >= metric.threshold) continue;
     items.push({
-      key: item.key,
-      title: item.title,
-      value: `↓ ${Math.abs(Number(item.value)).toLocaleString("es-CL", {
+      key: metric.key,
+      title: metric.title,
+      value: `↓ ${Math.abs(metric.value).toLocaleString("es-CL", {
         maximumFractionDigits: 1,
-      })}${item.unit}`,
-      detail: item.detail,
+      })}${metric.unit}`,
+      detail: metric.description,
       tone: "warning",
     });
   }
 
-  return items.slice(0, 3);
+  // Mostrar también hitos favorables cuando existan, sin inventar alertas.
+  if (variations.montoVendidoPct != null && variations.montoVendidoPct > 10) {
+    items.push({
+      key: "sales-growth",
+      title: "Crecimiento interanual",
+      value: `↑ ${formatPercentValue(variations.montoVendidoPct)}`,
+      detail: `Monto vendido ${formatCurrency(currentAmount)} frente a ${formatCurrency(previousAmount)} el año anterior.`,
+      tone: "positive",
+    });
+  }
+
+  if (variations.cierreOfPp != null && variations.cierreOfPp > 2) {
+    items.push({
+      key: "closure-growth",
+      title: "Mejora en el cierre OF",
+      value: `↑ ${formatPercentValue(variations.cierreOfPp)} pp`,
+      detail: "Mayor proporción de ofertas resueltas terminó en venta.",
+      tone: "positive",
+    });
+  }
+
+  return items.slice(0, 6);
 }
 
 function Dashboard() {
@@ -581,7 +616,7 @@ function Dashboard() {
 
     const current = {
       id: "current",
-      label: "Período actual",
+      label: currentPeriod ? formatPeriod(currentPeriod) : "Período actual",
       montoVendido: summary.montos?.vendidoBruto ?? 0,
       ventas: summary.ventas?.total ?? 0,
       cotizaciones: performance.current.tiendas.reduce(
@@ -599,7 +634,7 @@ function Dashboard() {
       current,
       {
         id: "previous",
-        label: "Período anterior",
+        label: previousPeriod ? formatPeriod(previousPeriod) : "Año anterior",
         montoVendido: previous.montoVendidoBruto ?? 0,
         ventas: previous.ventas ?? 0,
         cotizaciones: performance.previous.tiendas.reduce(
@@ -676,7 +711,7 @@ function Dashboard() {
               <h2>Evolución del monto vendido</h2>
             </div>
             <span className="executive-panel-note">
-              Actual vs período anterior
+              Actual vs mismo período del año anterior
             </span>
           </header>
 
@@ -700,7 +735,7 @@ function Dashboard() {
         <article className="panel executive-focus-panel">
           <header className="executive-panel-header">
             <div>
-              <span className="panel-eyebrow">Excepciones</span>
+              <span className="panel-eyebrow">Señales comerciales</span>
               <h2>Focos de atención</h2>
             </div>
           </header>
@@ -716,8 +751,8 @@ function Dashboard() {
               <TrendingUp size={20} />
               <strong>Sin deterioros relevantes</strong>
               <span>
-                Los indicadores principales no muestran caídas frente al
-                período comparable.
+                Sin señales relevantes con los umbrales actuales. Cuando
+                falten datos del año anterior, no se infieren variaciones.
               </span>
             </div>
           )}
@@ -732,6 +767,8 @@ function Dashboard() {
                   <span className="executive-focus-icon">
                     {item.tone === "critical" ? (
                       <TrendingDown size={18} />
+                    ) : item.tone === "positive" ? (
+                      <TrendingUp size={18} />
                     ) : (
                       <AlertTriangle size={18} />
                     )}
