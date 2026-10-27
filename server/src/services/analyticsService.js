@@ -846,7 +846,6 @@ export async function getSalesAnalytics(filters = {}) {
 
   let resumenProductos = [];
 
-  if (hasProductFilter) {
     const productSummaryValues = [...values];
     const matched = linePredicate("dd", applied, productSummaryValues);
     const productSummaryResult = await pool.query(
@@ -882,7 +881,6 @@ export async function getSalesAnalytics(filters = {}) {
       fr: integer(row.fr),
       fd: integer(row.fd),
     }));
-  }
 
   let matchingSelect = `
     '[]'::jsonb AS productos_coincidentes,
