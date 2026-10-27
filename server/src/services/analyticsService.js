@@ -703,6 +703,14 @@ export async function getQuoteAnalytics(filters = {}) {
       ? "ASC"
       : "DESC";
 
+  const pageSize = 100;
+  const totalRows = integer(summaryRow.total);
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+  const requestedPage = Math.max(1, Math.trunc(Number(filters.page) || 1));
+  const page = Math.min(requestedPage, totalPages);
+  values.push((page - 1) * pageSize);
+  const offsetParam = "$" + values.length;
+
   const result = await pool.query(
     `
       SELECT
@@ -731,13 +739,14 @@ export async function getQuoteAnalytics(filters = {}) {
       ORDER BY ${orderBy} ${orderDir} NULLS LAST,
                d.fecha DESC,
                d.numero_documento DESC
-      LIMIT 500
+      LIMIT 100 OFFSET ${offsetParam}
     `,
     values
   );
 
   return {
     filtros: applied,
+    paginacion: { pagina: page, paginas: totalPages, total: totalRows, porPagina: pageSize },
     resumen: {
       total: integer(summaryRow.total),
       pendientes: integer(summaryRow.pendientes),
@@ -934,6 +943,14 @@ export async function getSalesAnalytics(filters = {}) {
       ? "ASC"
       : "DESC";
 
+  const pageSize = 100;
+  const totalRows = integer(summaryRow.validas) + integer(summaryRow.canceladas);
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+  const requestedPage = Math.max(1, Math.trunc(Number(filters.page) || 1));
+  const page = Math.min(requestedPage, totalPages);
+  values.push((page - 1) * pageSize);
+  const offsetParam = "$" + values.length;
+
   const result = await pool.query(
     `
       SELECT
@@ -967,7 +984,7 @@ export async function getSalesAnalytics(filters = {}) {
       ORDER BY ${orderBy} ${orderDir} NULLS LAST,
                d.fecha DESC,
                d.numero_documento DESC
-      LIMIT 500
+      LIMIT 100 OFFSET ${offsetParam}
     `,
     values
   );
@@ -976,6 +993,7 @@ export async function getSalesAnalytics(filters = {}) {
 
   return {
     filtros: applied,
+    paginacion: { pagina: page, paginas: totalPages, total: totalRows, porPagina: pageSize },
     resumen: {
       validas: integer(summaryRow.validas),
       fr: integer(summaryRow.fr),
