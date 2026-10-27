@@ -59,6 +59,8 @@ CREATE TABLE IF NOT EXISTS detalle_documento (
 
     linea_sap INTEGER NOT NULL,
     codigo_item VARCHAR(80),
+    codigo_ashley TEXT,
+    categoria_general TEXT,
     descripcion TEXT,
 
     cantidad NUMERIC(18, 4),
@@ -128,6 +130,12 @@ CREATE INDEX IF NOT EXISTS idx_documentos_estado_analitico
 
 CREATE INDEX IF NOT EXISTS idx_detalle_codigo_item
     ON detalle_documento(codigo_item);
+
+CREATE INDEX IF NOT EXISTS idx_detalle_codigo_ashley
+    ON detalle_documento(codigo_ashley);
+
+CREATE INDEX IF NOT EXISTS idx_detalle_categoria_general
+    ON detalle_documento(categoria_general);
 
 CREATE INDEX IF NOT EXISTS idx_detalle_base
     ON detalle_documento(base_type, base_entry, base_line);
