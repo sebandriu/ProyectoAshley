@@ -125,3 +125,35 @@
   color: #7a818a;
   font-size: 11px;
 }
+
+.module-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 4px 4px;
+  color: #727b85;
+  font-size: 11px;
+}
+
+.module-pagination > div {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+
+.module-pagination button {
+  cursor: pointer;
+  border-radius: 7px;
+  border: 1px solid #dfe3e7;
+  background: #fff;
+  color: #464e57;
+  padding: 7px 10px;
+  font-size: 11px;
+}
+
+.module-pagination button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
