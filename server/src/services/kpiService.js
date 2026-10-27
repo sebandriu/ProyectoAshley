@@ -563,6 +563,7 @@ export async function getKpiSummary(filters = {}) {
             ? {
                 montoVendidoBruto: previous.montos.vendidoBruto,
                 ventas: previous.ventas.total,
+                cotizaciones: previous.cotizaciones.total,
                 ticketPromedioBruto:
                   previous.montos.ticketPromedioBruto,
                 cierreOfPct: previousClosure,
