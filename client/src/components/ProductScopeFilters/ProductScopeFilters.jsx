@@ -1,14 +1,24 @@
 import { useEffect, useId, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import {
-  getAnalyticsFilters,
-  getAshleyCodeOptions,
-} from "../../services/api";
+import { getAnalyticsFilters, getAshleyCodeOptions } from "../../services/api";
 import "./ProductScopeFilters.css";
 
-// Filtros comunes de Cotizaciones, Ventas, Productos y Tiendas/Vendedores.
-// Las dos listas provienen de PostgreSQL, sin introducir códigos manuales.
+// Conserva compatibilidad con enlaces de una categoría y acepta varias.
+// JSON evita confundir las comas que puedan formar parte del nombre.
+function parseCategories(value) {
+  if (!value) return [];
+  if (value.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      // Nombre literal de categoría, no una lista.
+    }
+  }
+  return [value];
+}
+
 function ProductScopeFilters() {
   const [params, setParams] = useSearchParams();
   const [categories, setCategories] = useState([]);
@@ -17,7 +27,8 @@ function ProductScopeFilters() {
   const [error, setError] = useState("");
   const categoryId = useId();
   const ashleyId = useId();
-  const category = params.get("categoriaGeneral") || "";
+  const categoryFilter = params.get("categoriaGeneral") || "";
+  const selectedCategories = parseCategories(categoryFilter);
   const ashley = params.get("codigoAshley") || "";
 
   useEffect(() => {
@@ -36,9 +47,8 @@ function ProductScopeFilters() {
     let active = true;
     setCodeLoading(true);
     setCodes([]);
-    setError("");
 
-    getAshleyCodeOptions(category)
+    getAshleyCodeOptions(categoryFilter)
       .then((response) => {
         if (active) setCodes(response.codigos ?? []);
       })
@@ -50,38 +60,64 @@ function ProductScopeFilters() {
       });
 
     return () => { active = false; };
-  }, [category]);
+  }, [categoryFilter]);
 
   function update(key, value) {
     setParams((current) => {
       const next = new URLSearchParams(current);
       if (value) next.set(key, value);
       else next.delete(key);
-
-      // El código elegido en otra categoría ya no es una selección válida.
       if (key === "categoriaGeneral") next.delete("codigoAshley");
       return next;
     });
   }
+
+  function toggleCategory(category) {
+    const next = selectedCategories.includes(category)
+      ? selectedCategories.filter((item) => item !== category)
+      : [...selectedCategories, category];
+    update("categoriaGeneral", next.length > 1
+      ? JSON.stringify(next)
+      : next[0] || "");
+  }
+
+  const categoryLabel = selectedCategories.length === 0
+    ? "Todas las categorías"
+    : selectedCategories.length === 1
+      ? selectedCategories[0]
+      : `${selectedCategories.length} categorías seleccionadas`;
 
   const selectedCodeNotListed =
     !codeLoading && ashley &&
     !codes.some((item) => item.codigo === ashley);
 
   return (
-    <section className="product-scope" aria-label="Filtrar productos por categoría o código Ashley">
+    <section className="product-scope" aria-label="Filtros de productos y categorías">
       <div className="product-scope-control">
-        <label htmlFor={categoryId}>Categoría general</label>
-        <select
-          id={categoryId}
-          value={category}
-          onChange={(event) => update("categoriaGeneral", event.target.value)}
-        >
-          <option value="">Todas las categorías</option>
-          {categories.map((item) => (
-            <option value={item} key={item}>{item}</option>
-          ))}
-        </select>
+        <span className="product-scope-label" id={categoryId}>Categoría general</span>
+        <details className="product-scope-picker">
+          <summary aria-labelledby={categoryId} title={categoryLabel}>
+            <span>{categoryLabel}</span>
+          </summary>
+          <div className="product-scope-options" role="group" aria-label="Elegir categorías generales">
+            {selectedCategories.length > 0 && (
+              <button type="button" className="product-scope-reset" onClick={() => update("categoriaGeneral", "")}>
+                Todas las categorías (limpiar selección)
+              </button>
+            )}
+            {categories.map((category) => (
+              <label key={category} className="product-scope-option">
+                <input
+                  type="checkbox"
+                  checked={selectedCategories.includes(category)}
+                  onChange={() => toggleCategory(category)}
+                />
+                <span>{category}</span>
+              </label>
+            ))}
+            {!categories.length && <p className="product-scope-empty">Sin categorías disponibles.</p>}
+          </div>
+        </details>
       </div>
 
       <div className="product-scope-control">
@@ -96,7 +132,7 @@ function ProductScopeFilters() {
             {codeLoading ? "Cargando códigos Ashley..." : "Todos los códigos Ashley"}
           </option>
           {selectedCodeNotListed && (
-            <option value={ashley}>{ashley} (no disponible en esta categoría)</option>
+            <option value={ashley}>{ashley} (no disponible)</option>
           )}
           {codes.map((item) => (
             <option value={item.codigo} key={item.codigo}>
@@ -106,7 +142,7 @@ function ProductScopeFilters() {
         </select>
       </div>
 
-      {(category || ashley) && (
+      {(selectedCategories.length > 0 || ashley) && (
         <button
           type="button"
           className="product-scope-clear"
