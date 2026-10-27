@@ -80,7 +80,7 @@ function formatMatches(matches) {
   return matches
     .map(
       (item) =>
-        `${item.codigo} ×${number.format(Number(item.cantidad || 0))}`
+        `${item.codigoAshley || item.codigo} ×${number.format(Number(item.cantidad || 0))}`
     )
     .join(" · ");
 }
