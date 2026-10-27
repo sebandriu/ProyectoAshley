@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { getProductAnalytics } from "../../services/api";
 import ProductScopeFilters from "../../components/ProductScopeFilters/ProductScopeFilters";
@@ -142,6 +142,20 @@ function Productos() {
   const topProduct = [...products].sort(
     (a, b) => b.montoVendido - a.montoVendido
   )[0];
+  const revenueByCategory = (data.productos ?? []).reduce((totals, product) => {
+    const name = product.categoriaGeneral || "SIN CATEGORIA";
+    totals[name] = (totals[name] || 0) + Number(product.montoVendido || 0);
+    return totals;
+  }, {});
+  const topCategory = Object.entries(revenueByCategory)
+    .sort((a, b) => b[1] - a[1])[0];
+
+  function quoteLink(code) {
+    const next = new URLSearchParams(searchParams);
+    next.set("productos", code);
+    next.delete("producto");
+    return `/cotizaciones?${next.toString()}`;
+  }
 
   function handleSort(key, numericColumn) {
     setSort((current) => {
@@ -202,11 +216,20 @@ function Productos() {
                   <span>{item.descripcion || item.codigo}
                     {" · "}<small>{item.codigoAshley || item.codigo}</small>
                   </span>
-                  <strong>{number.format(item.demandaNoConvertida)} unid. no convertidas</strong>
+                  <strong>
+                    {number.format(item.demandaNoConvertida)} unid. no convertidas
+                    {" · "}<Link to={quoteLink(item.codigo)}>Ver OF</Link>
+                  </strong>
                 </div>
               ))}
             </div>
           ) : <p className="module-subtitle">No hay demanda no convertida en el período.</p>}
+          {!filters.categoriaGeneral && topCategory && topCategory[1] > 0 && (
+            <p className="module-subtitle">
+              Categoría con mayor venta: <strong>{topCategory[0]}</strong>
+              {" · "}{currency.format(topCategory[1])}.
+            </p>
+          )}
           {topProduct && (
             <p className="module-subtitle">
               Mayor monto vendido: <strong>{topProduct.descripcion || topProduct.codigo}</strong>
