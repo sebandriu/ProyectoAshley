@@ -19,6 +19,7 @@ function filtersFromRequest(req) {
     vendedores: req.query.vendedores,
     categoriaGeneral: req.query.categoriaGeneral,
     codigoAshley: req.query.codigoAshley,
+    page: req.query.page,
     orderBy: req.query.orderBy,
     orderDir: req.query.orderDir,
   };
