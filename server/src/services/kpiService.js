@@ -562,6 +562,7 @@ export async function getKpiSummary(filters = {}) {
                 ticketPromedioBruto:
                   previous.montos.ticketPromedioBruto,
                 cierreOfPct: previousClosure,
+                cotizacionesPendientes: previous.cotizaciones.pendientes,
               }
             : null,
           variaciones: previous
@@ -577,6 +578,10 @@ export async function getKpiSummary(filters = {}) {
                 ticketPromedioPct: percentageChange(
                   current.montos.ticketPromedioBruto,
                   previous.montos.ticketPromedioBruto
+                ),
+                pendientesPct: percentageChange(
+                  current.cotizaciones.pendientes,
+                  previous.cotizaciones.pendientes
                 ),
                 cierreOfPp:
                   currentClosure === null ||
