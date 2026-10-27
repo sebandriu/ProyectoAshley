@@ -89,7 +89,7 @@ function linePredicate(alias, applied, values) {
   if (applied.categoriasGenerales.length) {
     values.push(applied.categoriasGenerales);
     terms.push(
-      `COALESCE(NULLIF(BTRIM(${alias}.categoria_general), ''), 'SIN CATEGORIA') = ANY(${values.length}::text[])`
+      `COALESCE(NULLIF(BTRIM(${alias}.categoria_general), ''), 'SIN CATEGORIA') = ANY($${values.length}::text[])`
     );
   }
   if (applied.codigoAshley) {
