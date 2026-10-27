@@ -169,7 +169,7 @@ function variationMeta(value, unit = "%") {
     return {
       tone: "positive",
       Icon: TrendingUp,
-      text: `↑ ${absolute}${unit} vs período anterior`,
+      text: `↑ ${absolute}${unit} vs mismo período del año anterior`,
     };
   }
 
@@ -583,6 +583,7 @@ function Dashboard() {
         const previousPeriod = summaryResponse?.comparacion?.anterior;
 
         const previousPerformance =
+          summaryResponse?.comparacion?.conDatos &&
           previousPeriod?.desde && previousPeriod?.hasta
             ? await getPerformanceAnalytics({
                 ...filters,
