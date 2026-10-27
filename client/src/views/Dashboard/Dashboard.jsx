@@ -517,6 +517,26 @@ function buildFocusItems({
     });
   }
 
+  const contributors = selectedStore
+    ? currentPerformance?.vendedores?.filter((row) => row.actividadReciente) ?? []
+    : currentPerformance?.tiendas ?? [];
+  const leader = [...contributors]
+    .sort((a, b) => Number(b.montoVendido || 0) - Number(a.montoVendido || 0))[0];
+  const totalOfGroup = contributors.reduce(
+    (sum, row) => sum + Number(row.montoVendido || 0),
+    0
+  );
+
+  if (leader && contributors.length > 1 && Number(leader.montoVendido) > 0 && totalOfGroup > 0) {
+    items.push({
+      key: "leader",
+      title: selectedStore ? `Vendedor destacado: ${leader.vendedor}` : `Tienda líder: ${leader.tienda}`,
+      value: formatCurrency(leader.montoVendido),
+      detail: `${formatPercentValue((Number(leader.montoVendido) / totalOfGroup) * 100)} del monto vendido entre ${selectedStore ? "vendedores con actividad reciente" : "tiendas analizadas"} en el período seleccionado.`,
+      tone: "positive",
+    });
+  }
+
   return items.slice(0, 6);
 }
 
@@ -619,10 +639,7 @@ function Dashboard() {
       label: currentPeriod ? formatPeriod(currentPeriod) : "Período actual",
       montoVendido: summary.montos?.vendidoBruto ?? 0,
       ventas: summary.ventas?.total ?? 0,
-      cotizaciones: performance.current.tiendas.reduce(
-        (sum, row) => sum + Number(row.cotizaciones || 0),
-        0
-      ),
+      cotizaciones: summary.cotizaciones?.total ?? 0,
       conversionPct: summary.conversion?.resueltasPct ?? null,
       ticketPromedio: summary.montos?.ticketPromedioBruto ?? 0,
     };
@@ -637,15 +654,12 @@ function Dashboard() {
         label: previousPeriod ? formatPeriod(previousPeriod) : "Año anterior",
         montoVendido: previous.montoVendidoBruto ?? 0,
         ventas: previous.ventas ?? 0,
-        cotizaciones: performance.previous.tiendas.reduce(
-          (sum, row) => sum + Number(row.cotizaciones || 0),
-          0
-        ),
+        cotizaciones: previous.cotizaciones ?? 0,
         conversionPct: previous.cierreOfPct ?? null,
         ticketPromedio: previous.ticketPromedioBruto ?? 0,
       },
     ];
-  }, [summary, performance.current, performance.previous]);
+  }, [summary, currentPeriod, previousPeriod]);
 
   return (
     <div className="page executive-dashboard">
@@ -656,7 +670,9 @@ function Dashboard() {
         </div>
         <span>
           {previousPeriod
-            ? `Comparado con ${formatPeriod(previousPeriod)}`
+            ? summary?.comparacion?.conDatos
+              ? `Comparado con ${formatPeriod(previousPeriod)}`
+              : `Sin registros comparables en ${formatPeriod(previousPeriod)}`
             : "Sin período comparable"}
           {selectedStore ? ` · ${selectedStore}` : ""}
         </span>
