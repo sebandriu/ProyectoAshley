@@ -643,6 +643,25 @@ export async function getQuoteAnalytics(filters = {}) {
   );
 
   const summaryRow = summaryResult.rows[0];
+  const pendingValues = [...values];
+  const pendingAmount = filtered
+    ? `COALESCE((
+        SELECT SUM(COALESCE(pdd.total_bruto, 0))
+        FROM detalle_documento pdd
+        WHERE pdd.documento_id = d.id
+          AND ${linePredicate("pdd", applied, pendingValues)}
+      ), 0)`
+    : "COALESCE(d.total_bruto, 0)";
+  const pendingResult = await pool.query(
+    `SELECT d.numero_documento, TO_CHAR(d.fecha, 'YYYY-MM-DD') AS fecha,
+            d.tienda, ${pendingAmount} AS monto
+     FROM documentos d
+     ${where}${extra}
+       AND d.estado_analitico = 'PENDIENTE'
+     ORDER BY monto DESC, d.fecha ASC
+     LIMIT 5`,
+    pendingValues
+  );
   let matchingSelect = `
     '[]'::jsonb AS productos_coincidentes,
     0::integer AS cantidad_coincidencias,
@@ -760,6 +779,12 @@ export async function getQuoteAnalytics(filters = {}) {
         integer(summaryRow.con_venta) + integer(summaryRow.sin_venta)
       ),
     },
+    topPendientes: pendingResult.rows.map((row) => ({
+      numero: row.numero_documento,
+      fecha: row.fecha,
+      tienda: row.tienda,
+      monto: numeric(row.monto),
+    })),
     orden: {
       campo: String(filters.orderBy ?? "fecha"),
       direccion: orderDir.toLowerCase(),
