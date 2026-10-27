@@ -476,6 +476,13 @@ export async function getPerformanceAnalytics(filters = {}) {
     activityConditions.push(`d.tienda = ${activityValues.length}`);
   }
 
+  if (applied.vendedores?.length) {
+    activityValues.push(applied.vendedores);
+    activityConditions.push(
+      `d.vendedor = ANY(${activityValues.length}::text[])`
+    );
+  }
+
   const activityResult = await pool.query(
     `
       WITH ultima_fecha AS (
