@@ -941,6 +941,7 @@ export async function getSalesAnalytics(filters = {}) {
       ? "ASC"
       : "DESC";
 
+  const summaryRow = summaryResult.rows[0];
   const pageSize = 100;
   const totalRows = integer(summaryRow.validas) + integer(summaryRow.canceladas);
   const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
@@ -986,8 +987,6 @@ export async function getSalesAnalytics(filters = {}) {
     `,
     values
   );
-
-  const summaryRow = summaryResult.rows[0];
 
   return {
     filtros: applied,
