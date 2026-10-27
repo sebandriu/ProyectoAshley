@@ -139,7 +139,7 @@ function Productos() {
     .filter((product) => Number(product.demandaNoConvertida) > 0)
     .sort((a, b) => b.demandaNoConvertida - a.demandaNoConvertida)
     .slice(0, 5);
-  const topSeller = [...products].sort(
+  const topProduct = [...products].sort(
     (a, b) => b.montoVendido - a.montoVendido
   )[0];
 
@@ -207,10 +207,10 @@ function Productos() {
               ))}
             </div>
           ) : <p className="module-subtitle">No hay demanda no convertida en el período.</p>}
-          {topSeller && (
+          {topProduct && (
             <p className="module-subtitle">
-              Mayor monto vendido: <strong>{topSeller.descripcion || topSeller.codigo}</strong>
-              {" · "}{currency.format(topSeller.montoVendido)}.
+              Mayor monto vendido: <strong>{topProduct.descripcion || topProduct.codigo}</strong>
+              {" · "}{currency.format(topProduct.montoVendido)}.
               La demanda no convertida proviene de líneas de OF, no representa stock disponible.
             </p>
           )}
