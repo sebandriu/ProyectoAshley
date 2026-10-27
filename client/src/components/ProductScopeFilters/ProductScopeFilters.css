@@ -25,8 +25,7 @@
   color: #656d78;
 }
 
-.product-scope-control select,
-.product-scope-control input {
+.product-scope-control select {
   height: 35px;
   width: 100%;
   min-width: 0;
@@ -36,15 +35,15 @@
   background: #fff;
   color: #333b43;
   font-size: 12px;
+  cursor: pointer;
 }
 
-.product-scope-search {
-  display: flex;
-  gap: 5px;
-  align-items: center;
+.product-scope-control select:disabled {
+  color: #8d959e;
+  cursor: wait;
+  background: #f8f9fa;
 }
 
-.product-scope-search button,
 .product-scope-clear {
   height: 35px;
   border: 1px solid #e8dfd5;
@@ -64,7 +63,7 @@
   border-color: #e6e8eb;
 }
 
-.product-scope-control :focus-visible,
+.product-scope-control select:focus-visible,
 .product-scope button:focus-visible {
   outline: 2px solid #f7941d;
   outline-offset: 2px;
