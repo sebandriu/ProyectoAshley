@@ -43,3 +43,11 @@ Las rutas de respaldo anteriores quedan fuera del repositorio. Si cambiaste las 
 - El estado laboral de los vendedores **no se deduce de las ventas**. Mostrar únicamente una *señal de actividad comercial reciente* basada en ventas válidas de los últimos 90 días, contados desde la última venta importada. Dos semanas sin ventas no descartan a nadie. Para una nómina laboral oficial se necesitarían datos de RR.HH.
 - Focos de atención: priorizar variaciones y hallazgos cuantificables, incluir señales favorables cuando corresponda y evitar alertas sobre vendedores sin ventas recientes.
 - Los gráficos de estrellas deben mostrar **valores originales, diferencias y escala**, no solo polígonos normalizados. La escala relativa no se interpreta como calificación de calidad.
+
+## Módulos para Store Manager
+
+- Cotizaciones, Ventas, Productos y Tiendas/Vendedores comparten el filtro de **categoría general** (`OITM.U_Cat_Gral`) y de **Código Ashley** (`OITM.U_NX_ItemCode`). El código Ashley es un identificador, no una segunda categoría. Pueden combinarse con los filtros existentes de fechas, tienda, vendedor y código SAP.
+- Con categoría o producto seleccionado, la cantidad de documentos refleja los documentos que lo contienen; los **montos filtrados** proceden solo de las líneas coincidentes. El total del documento completo, si se muestra, es referencial. Las líneas de servicio `700-*` no se cuentan como productos.
+- Cotizaciones destaca cierre de OF resueltas y las OF pendientes de mayor monto; Ventas destaca montos, cancelaciones y principales productos; Productos prioriza demanda no convertida; Tiendas/Vendedores presenta actividad reciente, líderes y OF pendientes.
+- La vista principal es breve y las tablas detalladas son desplegables. Los históricos de cotizaciones y ventas se recorren con paginación de 100 documentos, sin cortar los resultados en 500.
+- Estas mejoras no requieren migraciones adicionales; **sí requieren que los Excel importados incluyan `CategoriaGeneral` y `CodigoAshley`**. Si no hay categoría en SAP, se conserva como `SIN CATEGORIA`.
