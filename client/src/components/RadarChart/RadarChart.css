@@ -209,3 +209,44 @@
     font-size: 9px;
   }
 }
+
+/* Señal comercial reciente: no equivale a estado laboral. */
+.seller-activity-panel {
+  min-width: 0;
+}
+
+.seller-activity-description {
+  color: #707984;
+  font-size: 11px;
+  line-height: 1.65;
+  margin: 4px 0 12px;
+}
+
+.seller-activity-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.seller-activity-list > span {
+  background: #f5f7f8;
+  border: 1px solid #e8ecef;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #646c75;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.seller-activity-list strong {
+  color: #343c45;
+}
+
+.seller-recent-tag,
+.seller-unknown-tag {
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.seller-recent-tag { color: #348166; }
+.seller-unknown-tag { color: #89919a; }
