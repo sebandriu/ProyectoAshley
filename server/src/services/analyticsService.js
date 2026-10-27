@@ -595,7 +595,16 @@ export async function getQuoteAnalytics(filters = {}) {
     ? " AND d.tipo_documento = 'OF'"
     : "WHERE d.tipo_documento = 'OF'";
 
+  const filtered = hasLineSelection(applied);
   const summaryValues = [...values];
+  const amountSelected = filtered
+    ? `COALESCE((
+        SELECT SUM(COALESCE(sm.total_bruto, 0))
+        FROM detalle_documento sm
+        WHERE sm.documento_id = d.id
+          AND ${linePredicate("sm", applied, summaryValues)}
+      ), 0)`
+    : "COALESCE(d.total_bruto, 0)";
 
   const summaryResult = await pool.query(
     `
@@ -613,7 +622,8 @@ export async function getQuoteAnalytics(filters = {}) {
         COUNT(*) FILTER (
           WHERE d.estado_analitico = 'CERRADA SIN VENTA'
         ) AS sin_venta,
-        COALESCE(SUM(d.total_bruto), 0) AS monto
+        COALESCE(SUM(d.total_bruto), 0) AS monto,
+        COALESCE(SUM(${amountSelected}), 0) AS monto_seleccionado
       FROM documentos d
       ${where}${extra}
     `,
@@ -621,59 +631,42 @@ export async function getQuoteAnalytics(filters = {}) {
   );
 
   const summaryRow = summaryResult.rows[0];
-  const productCodes = applied.productos ?? [];
   let matchingSelect = `
     '[]'::jsonb AS productos_coincidentes,
     0::integer AS cantidad_coincidencias,
     NULL::numeric AS unidades_coincidentes
   `;
 
-  if (productCodes.length > 0) {
-    values.push(productCodes);
-    const productParameter = "$" + values.length + "::text[]";
+  if (filtered) {
+    const matches = linePredicate("md", applied, values);
+    const countMatch = linePredicate("mc", applied, values);
+    const unitsMatch = linePredicate("mu", applied, values);
 
     matchingSelect = `
-      COALESCE(
-        (
-          SELECT jsonb_agg(
-            jsonb_build_object(
-              'codigo', coincidencias.codigo_item,
-              'cantidad', coincidencias.cantidad
-            )
-            ORDER BY coincidencias.codigo_item
-          )
-          FROM (
-            SELECT
-              md.codigo_item,
-              SUM(COALESCE(md.cantidad, 0)) AS cantidad
-            FROM detalle_documento md
-            WHERE md.documento_id = d.id
-              AND md.tipo_linea = 'PRODUCTO'
-              AND md.codigo_item = ANY(${productParameter})
-            GROUP BY md.codigo_item
-          ) AS coincidencias
-        ),
-        '[]'::jsonb
-      ) AS productos_coincidentes,
-      COALESCE(
-        (
-          SELECT COUNT(DISTINCT mc.codigo_item)
-          FROM detalle_documento mc
-          WHERE mc.documento_id = d.id
-            AND mc.tipo_linea = 'PRODUCTO'
-            AND mc.codigo_item = ANY(${productParameter})
-        ),
-        0
+      COALESCE((
+        SELECT jsonb_agg(
+          jsonb_build_object(
+            'codigo', coincidencias.codigo_item,
+            'cantidad', coincidencias.cantidad,
+            'montoBruto', coincidencias.monto_bruto
+          ) ORDER BY coincidencias.monto_bruto DESC
+        )
+        FROM (
+          SELECT md.codigo_item,
+            SUM(COALESCE(md.cantidad, 0)) AS cantidad,
+            SUM(COALESCE(md.total_bruto, 0)) AS monto_bruto
+          FROM detalle_documento md
+          WHERE md.documento_id = d.id AND ${matches}
+          GROUP BY md.codigo_item
+        ) coincidencias
+      ), '[]'::jsonb) AS productos_coincidentes,
+      (SELECT COUNT(DISTINCT mc.codigo_item)
+       FROM detalle_documento mc
+       WHERE mc.documento_id = d.id AND ${countMatch}
       ) AS cantidad_coincidencias,
-      COALESCE(
-        (
-          SELECT SUM(COALESCE(mu.cantidad, 0))
-          FROM detalle_documento mu
-          WHERE mu.documento_id = d.id
-            AND mu.tipo_linea = 'PRODUCTO'
-            AND mu.codigo_item = ANY(${productParameter})
-        ),
-        0
+      COALESCE((SELECT SUM(COALESCE(mu.cantidad, 0))
+        FROM detalle_documento mu
+        WHERE mu.documento_id = d.id AND ${unitsMatch}), 0
       ) AS unidades_coincidentes
     `;
   }
@@ -739,6 +732,12 @@ export async function getQuoteAnalytics(filters = {}) {
       conVenta: integer(summaryRow.con_venta),
       sinVenta: integer(summaryRow.sin_venta),
       monto: numeric(summaryRow.monto),
+      montoSeleccionado: numeric(summaryRow.monto_seleccionado),
+      montoEsFiltrado: filtered,
+      tasaCierrePct: percentage(
+        integer(summaryRow.con_venta),
+        integer(summaryRow.con_venta) + integer(summaryRow.sin_venta)
+      ),
     },
     orden: {
       campo: String(filters.orderBy ?? "fecha"),
@@ -759,6 +758,7 @@ export async function getQuoteAnalytics(filters = {}) {
         ? row.productos_coincidentes.map((item) => ({
             codigo: item.codigo,
             cantidad: numeric(item.cantidad),
+            montoBruto: numeric(item.montoBruto),
           }))
         : [],
       cantidadCoincidencias: integer(row.cantidad_coincidencias),
