@@ -82,7 +82,8 @@ function SaleMatches({ matches }) {
       {matches.map((item) => (
         <div className="sale-match-item" key={item.codigo}>
           <div className="sale-match-product">
-            <strong>{item.codigo}</strong>
+            <strong>{item.codigoAshley || item.codigo}</strong>
+            {item.codigoAshley && <small>SKU: {item.codigo}</small>}
             {item.descripcion && item.descripcion !== item.codigo && (
               <span className="sale-match-description">
                 {item.descripcion}
@@ -270,7 +271,8 @@ Top {productBreakdown.length}
               >
                 <div className="sales-product-summary-heading">
                   <div>
-                    <strong>{product.codigo}</strong>
+                    <strong>{product.codigoAshley || product.codigo}</strong>
+                    {product.codigoAshley && <span>SKU SAP: {product.codigo}</span>}
                     {product.descripcion &&
                       product.descripcion !== product.codigo && (
                         <span>{product.descripcion}</span>
