@@ -425,6 +425,13 @@ export async function getProductAnalytics(filters = {}) {
 
 export async function getPerformanceAnalytics(filters = {}) {
   const { where, values, applied } = buildFilters(filters, { product: true });
+  const amount = hasLineSelection(applied)
+    ? `COALESCE((
+        SELECT SUM(COALESCE(pdd.total_bruto, 0))
+        FROM detalle_documento pdd
+        WHERE pdd.documento_id = d.id AND ${linePredicate("pdd", applied, values)}
+      ), 0)`
+    : "d.total_bruto";
 
   const result = await pool.query(
     `
@@ -434,7 +441,7 @@ export async function getPerformanceAnalytics(filters = {}) {
           d.tipo_documento,
           d.estado_analitico,
           d.cancelada_sap,
-          d.total_bruto,
+          ${amount} AS total_bruto,
           d.tienda,
           d.vendedor
         FROM documentos d
@@ -448,6 +455,10 @@ export async function getPerformanceAnalytics(filters = {}) {
         COUNT(*) FILTER (
           WHERE tipo_documento = 'OF'
         ) AS cotizaciones,
+        COUNT(*) FILTER (
+          WHERE tipo_documento = 'OF'
+            AND estado_analitico = 'PENDIENTE'
+        ) AS pendientes,
 
         COUNT(*) FILTER (
           WHERE tipo_documento IN ('FR', 'FD')
@@ -548,6 +559,7 @@ export async function getPerformanceAnalytics(filters = {}) {
       tienda: row.tienda,
       vendedor: row.vendedor,
       cotizaciones: integer(row.cotizaciones),
+      pendientes: integer(row.pendientes),
       ventas: integer(row.ventas),
       conversionPct: percentage(conVenta, resueltas),
       montoVendido: numeric(row.monto_vendido),
