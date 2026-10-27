@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 
 import { getQuoteAnalytics } from "../../services/api";
 import ProductScopeFilters from "../../components/ProductScopeFilters/ProductScopeFilters";
+import Pagination from "../../components/ProductScopeFilters/Pagination";
 
 const currency = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -96,6 +97,8 @@ function Cotizaciones() {
     monto: 0,
   });
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
   const [sort, setSort] = useState({
     key: "fecha",
     direction: "desc",
@@ -127,10 +130,13 @@ function Cotizaciones() {
         undefined,
       categoriaGeneral: searchParams.get("categoriaGeneral") || undefined,
       codigoAshley: searchParams.get("codigoAshley") || undefined,
+      page,
       orderBy: sort.key,
       orderDir: sort.direction,
     };
-  }, [searchParams, sort]);
+  }, [searchParams, sort, page]);
+
+  useEffect(() => { setPage(1); }, [searchParams]);
 
   useEffect(() => {
     let active = true;
@@ -141,6 +147,7 @@ function Cotizaciones() {
       .then((response) => {
         if (!active) return;
         setData(response.cotizaciones ?? []);
+        setPagination(response.paginacion ?? null);
         setSummary(
           response.resumen ?? {
             total: 0,
@@ -164,6 +171,7 @@ function Cotizaciones() {
   }, [filters]);
 
   function handleSort(key, defaultDirection) {
+    setPage(1);
     setSort((current) => {
       if (current.key === key) {
         return {
@@ -228,7 +236,7 @@ function Cotizaciones() {
             <h2>Cotizaciones</h2>
           </div>
           <span className="module-count">
-            {data.length} de {summary.total} encontradas
+            {pagination?.total ?? summary.total} encontradas
           </span>
         </header>
 
@@ -370,6 +378,7 @@ function Cotizaciones() {
               </tbody>
             </table>
             </div>
+            <Pagination data={pagination} onChange={setPage} />
           </details>
         )}
       </section>
