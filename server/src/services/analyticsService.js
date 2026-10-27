@@ -461,6 +461,63 @@ export async function getPerformanceAnalytics(filters = {}) {
     values
   );
 
+  // Actividad reciente = ventas en los 90 días previos a la última venta
+  // importada. Es una señal comercial, NO una nómina laboral.
+  const activityValues = [];
+  const activityConditions = [
+    "d.vendedor IS NOT NULL",
+    "BTRIM(d.vendedor) <> ''",
+    "d.tipo_documento IN ('FR', 'FD')",
+    "COALESCE(d.cancelada_sap, 'N') = 'N'",
+  ];
+
+  if (applied.tienda) {
+    activityValues.push(applied.tienda);
+    activityConditions.push("d.tienda = $" + activityValues.length);
+  }
+
+  if (applied.vendedores?.length) {
+    activityValues.push(applied.vendedores);
+    activityConditions.push(
+      "d.vendedor = ANY($" + activityValues.length + "::text[])"
+    );
+  }
+
+  const activityResult = await pool.query(
+    `
+      WITH ultima_fecha AS (
+        SELECT MAX(fecha) AS referencia
+        FROM documentos
+        WHERE tipo_documento IN ('FR', 'FD')
+          AND COALESCE(cancelada_sap, 'N') = 'N'
+      )
+      SELECT
+        d.vendedor,
+        d.tienda,
+        TO_CHAR(MAX(d.fecha), 'YYYY-MM-DD') AS ultima_venta,
+        TO_CHAR(MAX(u.referencia), 'YYYY-MM-DD') AS fecha_referencia
+      FROM documentos d
+      CROSS JOIN ultima_fecha u
+      WHERE ${activityConditions.join(" AND ")}
+        AND d.fecha >= u.referencia - INTERVAL '90 days'
+      GROUP BY d.vendedor, d.tienda
+      ORDER BY MAX(d.fecha) DESC, d.vendedor
+    `,
+    activityValues
+  );
+
+  const vendedoresRecientes = activityResult.rows.map((row) => ({
+    vendedor: row.vendedor,
+    tienda: row.tienda,
+    ultimaVenta: row.ultima_venta,
+  }));
+  const recientesPorClave = new Map(
+    vendedoresRecientes.map((row) => [
+      `${row.tienda ?? ""}|${row.vendedor ?? ""}`,
+      row.ultimaVenta,
+    ])
+  );
+
   const mapRow = (row) => {
     const completas = integer(row.completas);
     const parciales = integer(row.parciales);
@@ -499,7 +556,17 @@ export async function getPerformanceAnalytics(filters = {}) {
   return {
     filtros: applied,
     tiendas,
-    vendedores,
+    vendedores: vendedores.map((row) => ({
+      ...row,
+      actividadReciente: recientesPorClave.has(
+        `${row.tienda ?? ""}|${row.vendedor ?? ""}`
+      ),
+      ultimaVenta: recientesPorClave.get(
+        `${row.tienda ?? ""}|${row.vendedor ?? ""}`
+      ) ?? null,
+    })),
+    vendedoresRecientes,
+    fechaReferenciaActividad: activityResult.rows[0]?.fecha_referencia ?? null,
   };
 }
 

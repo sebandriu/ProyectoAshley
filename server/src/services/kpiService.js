@@ -105,31 +105,8 @@ function toIsoDate(date) {
   return date.toISOString().slice(0, 10);
 }
 
-function addDays(date, days) {
-  const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
-}
-
 function monthEnd(date) {
-  return new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)
-  );
-}
-
-function previousMonthDate(date, day) {
-  const previousMonth = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 1, 1)
-  );
-  const lastDay = monthEnd(previousMonth).getUTCDate();
-
-  return new Date(
-    Date.UTC(
-      previousMonth.getUTCFullYear(),
-      previousMonth.getUTCMonth(),
-      Math.min(day, lastDay)
-    )
-  );
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0));
 }
 
 function previousYearDate(date) {
@@ -137,70 +114,33 @@ function previousYearDate(date) {
   const month = date.getUTCMonth();
   const day = date.getUTCDate();
   const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-
   return new Date(Date.UTC(year, month, Math.min(day, lastDay)));
 }
 
+// Todos los indicadores y series comparten la misma comparación interanual.
 function comparisonPeriod(applied) {
   if (!applied?.desde || !applied?.hasta) return null;
 
   const from = parseIsoDate(applied.desde);
   const to = parseIsoDate(applied.hasta);
-  const durationDays =
-    Math.round((to.getTime() - from.getTime()) / 86400000) + 1;
+  if (to < from) return null;
 
-  if (durationDays <= 0) return null;
+  const previousFrom = previousYearDate(from);
+  let previousTo = previousYearDate(to);
 
-  const sameMonth =
+  // Mes completo: incluir también el día 29 de febrero del año anterior.
+  const fullMonth =
     from.getUTCFullYear() === to.getUTCFullYear() &&
-    from.getUTCMonth() === to.getUTCMonth();
-
-  if (sameMonth && from.getUTCDate() === 1 && durationDays > 1) {
-    const previousFrom = previousMonthDate(from, 1);
-    const currentMonthEnd = monthEnd(from);
-    const isFullMonth = to.getTime() === currentMonthEnd.getTime();
-    const previousTo = isFullMonth
-      ? monthEnd(previousFrom)
-      : previousMonthDate(from, to.getUTCDate());
-
-    return {
-      desde: toIsoDate(previousFrom),
-      hasta: toIsoDate(previousTo),
-      tipo: isFullMonth ? "MES_ANTERIOR" : "MES_A_LA_FECHA",
-    };
-  }
-
-  const sameYear = from.getUTCFullYear() === to.getUTCFullYear();
-
-  if (
-    sameYear &&
-    from.getUTCMonth() === 0 &&
+    from.getUTCMonth() === to.getUTCMonth() &&
     from.getUTCDate() === 1 &&
-    durationDays > 31
-  ) {
-    const previousFrom = new Date(
-      Date.UTC(from.getUTCFullYear() - 1, 0, 1)
-    );
-    const isFullYear =
-      to.getUTCMonth() === 11 && to.getUTCDate() === 31;
-    const previousTo = isFullYear
-      ? new Date(Date.UTC(to.getUTCFullYear() - 1, 11, 31))
-      : previousYearDate(to);
+    to.getTime() === monthEnd(from).getTime();
 
-    return {
-      desde: toIsoDate(previousFrom),
-      hasta: toIsoDate(previousTo),
-      tipo: isFullYear ? "ANIO_ANTERIOR" : "ANIO_A_LA_FECHA",
-    };
-  }
-
-  const previousTo = addDays(from, -1);
-  const previousFrom = addDays(previousTo, -(durationDays - 1));
+  if (fullMonth) previousTo = monthEnd(previousFrom);
 
   return {
     desde: toIsoDate(previousFrom),
     hasta: toIsoDate(previousTo),
-    tipo: "RANGO_ANTERIOR",
+    tipo: "MISMO_PERIODO_ANIO_ANTERIOR",
   };
 }
 
@@ -603,6 +543,9 @@ export async function getKpiSummary(filters = {}) {
     current
   );
 
+  const hasPreviousData = previous &&
+    (previous.cotizaciones.total > 0 || previous.ventas.total > 0);
+
   const currentClosure = current.conversion.resueltasPct;
   const previousClosure = previous?.conversion?.resueltasPct ?? null;
 
@@ -615,16 +558,19 @@ export async function getKpiSummary(filters = {}) {
             hasta: current.filtros.hasta,
           },
           anterior: previousPeriod,
-          valoresAnteriores: previous
+          conDatos: Boolean(hasPreviousData),
+          valoresAnteriores: hasPreviousData
             ? {
                 montoVendidoBruto: previous.montos.vendidoBruto,
                 ventas: previous.ventas.total,
+                cotizaciones: previous.cotizaciones.total,
                 ticketPromedioBruto:
                   previous.montos.ticketPromedioBruto,
                 cierreOfPct: previousClosure,
+                cotizacionesPendientes: previous.cotizaciones.pendientes,
               }
             : null,
-          variaciones: previous
+          variaciones: hasPreviousData
             ? {
                 montoVendidoPct: percentageChange(
                   current.montos.vendidoBruto,
@@ -637,6 +583,10 @@ export async function getKpiSummary(filters = {}) {
                 ticketPromedioPct: percentageChange(
                   current.montos.ticketPromedioBruto,
                   previous.montos.ticketPromedioBruto
+                ),
+                pendientesPct: percentageChange(
+                  current.cotizaciones.pendientes,
+                  previous.cotizaciones.pendientes
                 ),
                 cierreOfPp:
                   currentClosure === null ||
@@ -832,7 +782,7 @@ export async function getKpiEvolution(filters = {}) {
     granularity
   );
 
-  const previousPoints = previousResult
+  const previousPoints = previousResult?.rows.length
     ? fillSeries(
         previousResult.rows,
         previousResult.applied,

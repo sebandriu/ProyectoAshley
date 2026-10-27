@@ -95,6 +95,7 @@ function prepareSeries(rows, referenceRows) {
               : 0;
 
       return {
+        raw,
         score,
         display: formatMetric(raw, axis.type),
       };
@@ -110,6 +111,27 @@ function RadarChart({ rows = [], referenceRows, emptyMessage }) {
   const hasValues = series.some((item) =>
     item.values.some((value) => value.score > 0)
   );
+  const comparisons = series.length === 2
+    ? axes.map((axis, index) => {
+        const current = series[0].values[index].raw;
+        const previous = series[1].values[index].raw;
+        if (current == null || previous == null) return null;
+        const diff = axis.type === "percent"
+          ? current - previous
+          : previous > 0
+            ? ((current - previous) / previous) * 100
+            : null;
+        return diff === null
+          ? null
+          : {
+              label: axis.label,
+              value: diff,
+              text: `${diff > 0 ? "+" : ""}${diff.toLocaleString("es-CL", {
+                maximumFractionDigits: 1,
+              })}${axis.type === "percent" ? " pp" : "%"}`,
+            };
+      }).filter(Boolean)
+    : [];
 
   if (!series.length || !hasValues) {
     return (
@@ -227,30 +249,80 @@ function RadarChart({ rows = [], referenceRows, emptyMessage }) {
       </div>
 
       <p className="radar-chart-note">
-        Escala 0–100: cantidades e importes relativos al máximo del grupo;
-        cierre OF según su porcentaje real. Un cierre sin base se representa
-        sin puntuación.
+        La figura muestra perfiles relativos (escala 0–100), no una nota de
+        desempeño: montos y cantidades se escalan con el máximo del grupo;
+        el cierre OF utiliza su porcentaje real.
       </p>
+
+      {comparisons.length > 0 && (
+        <div className="radar-chart-insights">
+          {comparisons
+            .filter((change) =>
+              ["Monto vendido", "Cierre OF", "Ticket promedio"].includes(change.label)
+            )
+            .map((change) => (
+              <div className="radar-insight" key={change.label}>
+                <span>{change.label}</span>
+                <strong className={change.value < 0 ? "negative" : "positive"}>
+                  {change.text}
+                </strong>
+                <small>vs año anterior</small>
+              </div>
+            ))}
+        </div>
+      )}
+
       <div className="radar-chart-data">
         <table>
-          <caption>Valores originales de la comparación</caption>
+          <caption>Indicadores reales y posición relativa por eje</caption>
           <thead>
             <tr>
               <th scope="col">Indicador</th>
               {series.map((item) => (
                 <th scope="col" key={item.id}>{item.label}</th>
               ))}
+              {series.length === 2 && <th scope="col">Cambio</th>}
             </tr>
           </thead>
           <tbody>
-            {axes.map((axis, index) => (
-              <tr key={axis.key}>
-                <th scope="row">{axis.label}</th>
-                {series.map((item) => (
-                  <td key={item.id}>{item.values[index].display}</td>
-                ))}
-              </tr>
-            ))}
+            {axes.map((axis, index) => {
+              const comparison = comparisons.find((c) => c.label === axis.label);
+              const topValue = Math.max(
+                0,
+                ...series.map((item) => item.values[index].raw ?? 0)
+              );
+              return (
+                <tr key={axis.key}>
+                  <th scope="row">{axis.label}</th>
+                  {series.map((item) => (
+                    <td key={item.id}>
+                      <strong>{item.values[index].display}</strong>
+                      {series.length > 2 &&
+                        topValue > 0 &&
+                        item.values[index].raw === topValue && (
+                          <small className="radar-leader-label">Líder en este eje</small>
+                        )}
+                      <div
+                        className="radar-metric-track"
+                        title={`Posición relativa: ${Math.round(item.values[index].score)} de 100`}
+                      >
+                        <span
+                          style={{
+                            width: `${item.values[index].score}%`,
+                            backgroundColor: item.color,
+                          }}
+                        />
+                      </div>
+                    </td>
+                  ))}
+                  {series.length === 2 && (
+                    <td className={comparison?.value < 0 ? "radar-negative" : "radar-positive"}>
+                      {comparison?.text ?? "Sin base"}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

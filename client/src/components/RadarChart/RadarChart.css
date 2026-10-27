@@ -87,15 +87,110 @@
 }
 
 .radar-chart-data {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
+  width: 100%;
+  margin-top: 18px;
+  overflow-x: auto;
+}
+
+.radar-chart-data table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 11px;
+  min-width: 480px;
+}
+
+.radar-chart-data caption {
+  caption-side: top;
+  text-align: left;
+  font-weight: 700;
+  margin-bottom: 9px;
+  color: #454b54;
+}
+
+.radar-chart-data th,
+.radar-chart-data td {
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid #e6e9ec;
+  white-space: normal;
+}
+
+.radar-chart-data th {
+  color: #676f79;
+  font-weight: 650;
+}
+
+.radar-chart-data td strong {
+  font-weight: 650;
+  color: #343b45;
+}
+
+.radar-leader-label {
+  display: block;
+  margin-top: 3px;
+  color: #387d65;
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.radar-metric-track {
+  margin-top: 6px;
+  width: 100%;
+  min-width: 80px;
+  height: 5px;
+  background: #eceff1;
+  border-radius: 5px;
   overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
+}
+
+.radar-metric-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.radar-chart-insights {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.radar-insight {
+  border: 1px solid #e5e8ea;
+  border-radius: 9px;
+  padding: 11px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+
+.radar-insight span {
+  color: #646c75;
+  font-size: 10px;
+}
+
+.radar-insight strong {
+  font-size: 16px;
+  font-weight: 750;
+}
+
+.radar-insight small {
+  font-size: 10px;
+  color: #8b929b;
+}
+
+.radar-insight .negative,
+.radar-negative {
+  color: #ba4c43;
+}
+
+.radar-insight .positive,
+.radar-positive {
+  color: #318060;
 }
 
 @media (max-width: 700px) {
@@ -122,3 +217,44 @@
     font-size: 9px;
   }
 }
+
+/* Señal comercial reciente: no equivale a estado laboral. */
+.seller-activity-panel {
+  min-width: 0;
+}
+
+.seller-activity-description {
+  color: #707984;
+  font-size: 11px;
+  line-height: 1.65;
+  margin: 4px 0 12px;
+}
+
+.seller-activity-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.seller-activity-list > span {
+  background: #f5f7f8;
+  border: 1px solid #e8ecef;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #646c75;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.seller-activity-list strong {
+  color: #343c45;
+}
+
+.seller-recent-tag,
+.seller-unknown-tag {
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.seller-recent-tag { color: #348166; }
+.seller-unknown-tag { color: #89919a; }

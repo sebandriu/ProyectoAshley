@@ -36,3 +36,10 @@ En la carpeta raíz del proyecto y con Docker iniciado:
 4. Importar desde Micapp los Excel V3 (por año/intervalos si exceden **50 MB** cada uno). Verificar OF, FR, FD, categorías y KPI antes de considerar terminada la carga.
 
 Las rutas de respaldo anteriores quedan fuera del repositorio. Si cambiaste las variables de conexión de PostgreSQL, adapta el usuario y la base de los comandos.
+
+## Criterios del análisis comercial
+
+- Comparar cada período con **las mismas fechas del año anterior** (YoY). Para meses completos se compara el mes completo, incluido el 29 de febrero si corresponde. Sin registros comparables no mostrar un crecimiento ficticio.
+- El estado laboral de los vendedores **no se deduce de las ventas**. Mostrar únicamente una *señal de actividad comercial reciente* basada en ventas válidas de los últimos 90 días, contados desde la última venta importada. Dos semanas sin ventas no descartan a nadie. Para una nómina laboral oficial se necesitarían datos de RR.HH.
+- Focos de atención: priorizar variaciones y hallazgos cuantificables, incluir señales favorables cuando corresponda y evitar alertas sobre vendedores sin ventas recientes.
+- Los gráficos de estrellas deben mostrar **valores originales, diferencias y escala**, no solo polígonos normalizados. La escala relativa no se interpreta como calificación de calidad.
