@@ -473,13 +473,13 @@ export async function getPerformanceAnalytics(filters = {}) {
 
   if (applied.tienda) {
     activityValues.push(applied.tienda);
-    activityConditions.push(`d.tienda = ${activityValues.length}`);
+    activityConditions.push("d.tienda = $" + activityValues.length);
   }
 
   if (applied.vendedores?.length) {
     activityValues.push(applied.vendedores);
     activityConditions.push(
-      `d.vendedor = ANY(${activityValues.length}::text[])`
+      "d.vendedor = ANY($" + activityValues.length + "::text[])"
     );
   }
 
