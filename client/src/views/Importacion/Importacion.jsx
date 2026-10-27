@@ -48,7 +48,7 @@ function Importacion() {
           <strong>Seleccionar archivo Excel</strong>
 
           <span>
-            Excel .xlsx de la consulta consolidada V3 (CodigoAshley y CategoriaGeneral)
+            Excel .xlsx de la consulta consolidada
           </span>
 
           <input
