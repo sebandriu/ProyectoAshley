@@ -269,6 +269,16 @@ export async function getProductAnalytics(filters = {}) {
       SELECT
         dd.codigo_item AS codigo,
         MAX(dd.descripcion) AS descripcion,
+        (
+          ARRAY_AGG(NULLIF(BTRIM(dd.codigo_ashley), '')
+            ORDER BY d.fecha DESC, d.id DESC)
+          FILTER (WHERE NULLIF(BTRIM(dd.codigo_ashley), '') IS NOT NULL)
+        )[1] AS codigo_ashley,
+        COALESCE((
+          ARRAY_AGG(NULLIF(BTRIM(dd.categoria_general), '')
+            ORDER BY d.fecha DESC, d.id DESC)
+          FILTER (WHERE NULLIF(BTRIM(dd.categoria_general), '') IS NOT NULL)
+        )[1], 'SIN CATEGORIA') AS categoria_general,
 
         COALESCE(SUM(
           CASE
@@ -349,6 +359,8 @@ export async function getProductAnalytics(filters = {}) {
 
     return {
       codigo: row.codigo,
+      codigoAshley: row.codigo_ashley || null,
+      categoriaGeneral: row.categoria_general || "SIN CATEGORIA",
       descripcion: row.descripcion || row.codigo,
       unidadesCotizadas: quoted,
       unidadesConvertidas: converted,
