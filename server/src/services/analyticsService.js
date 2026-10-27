@@ -53,9 +53,29 @@ function normalizeSellerNames(value) {
   return normalizeList(value);
 }
 
+// Un valor simple mantiene compatibilidad con enlaces anteriores.
+// Las selecciones múltiples viajan como JSON, sin dividir nombres con comas.
+function normalizeCategories(value) {
+  if (Array.isArray(value)) {
+    return [...new Set(value.map((item) => String(item ?? "").trim()).filter(Boolean))];
+  }
+
+  const source = String(value ?? "").trim();
+  if (!source) return [];
+  if (source.startsWith("[")) {
+    try {
+      const categories = JSON.parse(source);
+      if (Array.isArray(categories)) return normalizeCategories(categories);
+    } catch {
+      // Los nombres simples que comiencen con "[" siguen siendo válidos.
+    }
+  }
+  return [source];
+}
+
 function hasLineSelection(applied) {
   return applied.productos.length > 0 ||
-    Boolean(applied.categoriaGeneral || applied.codigoAshley);
+    Boolean(applied.categoriasGenerales.length || applied.codigoAshley);
 }
 
 // Una misma condición reutilizada por los listados y los totales.
@@ -66,10 +86,10 @@ function linePredicate(alias, applied, values) {
     values.push(applied.productos);
     terms.push(`${alias}.codigo_item = ANY($${values.length}::text[])`);
   }
-  if (applied.categoriaGeneral) {
-    values.push(applied.categoriaGeneral);
+  if (applied.categoriasGenerales.length) {
+    values.push(applied.categoriasGenerales);
     terms.push(
-      `COALESCE(NULLIF(BTRIM(${alias}.categoria_general), ''), 'SIN CATEGORIA') = $${values.length}`
+      `COALESCE(NULLIF(BTRIM(${alias}.categoria_general), ''), 'SIN CATEGORIA') = ANY(${values.length}::text[])`
     );
   }
   if (applied.codigoAshley) {
@@ -108,7 +128,7 @@ function buildFilters(filters = {}, { product = false } = {}) {
     tienda: filters.tienda ? String(filters.tienda).trim() : null,
     vendedores: normalizeSellerNames(filters.vendedores ?? filters.vendedor),
     productos: normalizeProductCodes(filters.productos ?? filters.producto),
-    categoriaGeneral: String(filters.categoriaGeneral ?? "").trim(),
+    categoriasGenerales: normalizeCategories(filters.categoriaGeneral),
     codigoAshley: String(filters.codigoAshley ?? "").trim(),
   };
 
@@ -168,15 +188,15 @@ export async function getAnalyticsFilterOptions() {
 // Opciones reales para un desplegable, sin entrada de texto libre.
 // La categoría restringe la lista sin modificar los datos originales.
 export async function getAshleyCodeOptions(category = "") {
-  const selectedCategory = String(category ?? "").trim();
+  const selectedCategories = normalizeCategories(category);
   const values = [];
   let byCategory = "";
 
-  if (selectedCategory) {
-    values.push(selectedCategory);
+  if (selectedCategories.length) {
+    values.push(selectedCategories);
     byCategory = `AND COALESCE(
       NULLIF(BTRIM(dd.categoria_general), ''), 'SIN CATEGORIA'
-    ) = $1`;
+    ) = ANY($1::text[])`;
   }
 
   const result = await pool.query(
