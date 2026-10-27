@@ -3273,6 +3273,11 @@ body,
   background: #fffaf4;
 }
 
+.executive-focus-item.positive {
+  border-color: #d7e8dd;
+  background: #f8fcf9;
+}
+
 .executive-focus-icon {
   width: 34px;
   height: 34px;
@@ -3292,6 +3297,11 @@ body,
 .executive-focus-item.warning .executive-focus-icon {
   color: #b56b16;
   background: #fff1df;
+}
+
+.executive-focus-item.positive .executive-focus-icon {
+  color: #318060;
+  background: #eaf6ee;
 }
 
 .executive-focus-copy {
@@ -3330,6 +3340,10 @@ body,
 
 .executive-focus-item.warning .executive-focus-copy > div > span {
   color: #b56b16;
+}
+
+.executive-focus-item.positive .executive-focus-copy > div > span {
+  color: #318060;
 }
 
 .executive-focus-copy p {
