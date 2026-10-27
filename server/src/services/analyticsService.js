@@ -869,43 +869,41 @@ export async function getSalesAnalytics(filters = {}) {
     summaryValues
   );
 
-  let resumenProductos = [];
+  const productSummaryValues = [...values];
+  const matched = linePredicate("dd", applied, productSummaryValues);
+  const productSummaryResult = await pool.query(
+    `
+      SELECT
+        dd.codigo_item AS codigo,
+        MAX(dd.descripcion) AS descripcion,
+        MAX(NULLIF(BTRIM(dd.codigo_ashley), '')) AS codigo_ashley,
+        COALESCE(SUM(dd.cantidad), 0) AS unidades_vendidas,
+        COALESCE(SUM(dd.total_bruto), 0) AS monto_vendido,
+        COUNT(DISTINCT d.id) AS documentos,
+        COUNT(DISTINCT d.id) FILTER (WHERE d.tipo_documento = 'FR') AS fr,
+        COUNT(DISTINCT d.id) FILTER (WHERE d.tipo_documento = 'FD') AS fd
+      FROM documentos d
+      INNER JOIN detalle_documento dd ON dd.documento_id = d.id
+      ${where}${extra}
+        AND COALESCE(d.cancelada_sap, 'N') = 'N'
+        AND ${matched}
+      GROUP BY dd.codigo_item
+      ORDER BY monto_vendido DESC
+      LIMIT 8
+    `,
+    productSummaryValues
+  );
 
-    const productSummaryValues = [...values];
-    const matched = linePredicate("dd", applied, productSummaryValues);
-    const productSummaryResult = await pool.query(
-      `
-        SELECT
-          dd.codigo_item AS codigo,
-          MAX(dd.descripcion) AS descripcion,
-          MAX(NULLIF(BTRIM(dd.codigo_ashley), '')) AS codigo_ashley,
-          COALESCE(SUM(dd.cantidad), 0) AS unidades_vendidas,
-          COALESCE(SUM(dd.total_bruto), 0) AS monto_vendido,
-          COUNT(DISTINCT d.id) AS documentos,
-          COUNT(DISTINCT d.id) FILTER (WHERE d.tipo_documento = 'FR') AS fr,
-          COUNT(DISTINCT d.id) FILTER (WHERE d.tipo_documento = 'FD') AS fd
-        FROM documentos d
-        INNER JOIN detalle_documento dd ON dd.documento_id = d.id
-        ${where}${extra}
-          AND COALESCE(d.cancelada_sap, 'N') = 'N'
-          AND ${matched}
-        GROUP BY dd.codigo_item
-        ORDER BY monto_vendido DESC
-        LIMIT 8
-      `,
-      productSummaryValues
-    );
-
-    resumenProductos = productSummaryResult.rows.map((row) => ({
-      codigo: row.codigo,
-      codigoAshley: row.codigo_ashley,
-      descripcion: row.descripcion || row.codigo,
-      unidadesVendidas: numeric(row.unidades_vendidas),
-      montoVendido: numeric(row.monto_vendido),
-      documentos: integer(row.documentos),
-      fr: integer(row.fr),
-      fd: integer(row.fd),
-    }));
+  const resumenProductos = productSummaryResult.rows.map((row) => ({
+    codigo: row.codigo,
+    codigoAshley: row.codigo_ashley,
+    descripcion: row.descripcion || row.codigo,
+    unidadesVendidas: numeric(row.unidades_vendidas),
+    montoVendido: numeric(row.monto_vendido),
+    documentos: integer(row.documentos),
+    fr: integer(row.fr),
+    fd: integer(row.fd),
+  }));
 
   let matchingSelect = `
     '[]'::jsonb AS productos_coincidentes,
