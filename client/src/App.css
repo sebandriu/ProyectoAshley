@@ -4231,34 +4231,3 @@ body,
     margin-top: 14px;
   }
 }
-
-/* Categorías de productos SAP / Ashley */
-.product-category-filter {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0 0 13px;
-}
-
-.product-category-filter label {
-  color: #676d75;
-  font-size: 11px;
-  font-weight: 650;
-}
-
-.product-category-filter select {
-  width: min(100%, 300px);
-  min-height: 34px;
-  padding: 6px 10px;
-  border: 1px solid #dfe2e6;
-  border-radius: 8px;
-  background: #fff;
-  color: #383d44;
-  font-size: 11px;
-}
-
-.product-category-filter select:focus-visible {
-  outline: 2px solid #f7941d;
-  outline-offset: 2px;
-}
