@@ -17,6 +17,9 @@ function filtersFromRequest(req) {
     producto: req.query.producto,
     productos: req.query.productos,
     vendedores: req.query.vendedores,
+    categoriaGeneral: req.query.categoriaGeneral,
+    codigoAshley: req.query.codigoAshley,
+    page: req.query.page,
     orderBy: req.query.orderBy,
     orderDir: req.query.orderDir,
   };

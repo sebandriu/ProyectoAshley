@@ -53,13 +53,38 @@ function normalizeSellerNames(value) {
   return normalizeList(value);
 }
 
+function hasLineSelection(applied) {
+  return applied.productos.length > 0 ||
+    Boolean(applied.categoriaGeneral || applied.codigoAshley);
+}
+
+// Una misma condición reutilizada por los listados y los totales.
+// Los importes filtrados provienen de las líneas, no del documento completo.
+function linePredicate(alias, applied, values) {
+  const terms = [`${alias}.tipo_linea = 'PRODUCTO'`];
+  if (applied.productos.length) {
+    values.push(applied.productos);
+    terms.push(`${alias}.codigo_item = ANY($${values.length}::text[])`);
+  }
+  if (applied.categoriaGeneral) {
+    values.push(applied.categoriaGeneral);
+    terms.push(
+      `COALESCE(NULLIF(BTRIM(${alias}.categoria_general), ''), 'SIN CATEGORIA') = $${values.length}`
+    );
+  }
+  if (applied.codigoAshley) {
+    values.push(applied.codigoAshley);
+    terms.push(`UPPER(BTRIM(COALESCE(${alias}.codigo_ashley, ''))) = UPPER($${values.length})`);
+  }
+  return terms.join(" AND ");
+}
+
 function buildFilters(filters = {}, { product = false } = {}) {
   const conditions = [];
   const values = [];
 
   const desde = validateDate(filters.desde, "desde");
   const hasta = validateDate(filters.hasta, "hasta");
-
   if (desde && hasta && desde > hasta) {
     throw new Error("La fecha desde no puede ser posterior a la fecha hasta.");
   }
@@ -68,58 +93,46 @@ function buildFilters(filters = {}, { product = false } = {}) {
     values.push(desde);
     conditions.push(`d.fecha >= $${values.length}::date`);
   }
-
   if (hasta) {
     values.push(hasta);
     conditions.push(`d.fecha <= $${values.length}::date`);
   }
-
   if (filters.tienda) {
     values.push(String(filters.tienda).trim());
     conditions.push(`d.tienda = $${values.length}`);
   }
 
-  const sellerNames = normalizeSellerNames(
-    filters.vendedores ?? filters.vendedor
-  );
+  const applied = {
+    desde,
+    hasta,
+    tienda: filters.tienda ? String(filters.tienda).trim() : null,
+    vendedores: normalizeSellerNames(filters.vendedores ?? filters.vendedor),
+    productos: normalizeProductCodes(filters.productos ?? filters.producto),
+    categoriaGeneral: String(filters.categoriaGeneral ?? "").trim(),
+    codigoAshley: String(filters.codigoAshley ?? "").trim(),
+  };
 
-  if (sellerNames.length > 0) {
-    values.push(sellerNames);
-    conditions.push("d.vendedor = ANY($" + values.length + "::text[])");
+  if (applied.vendedores.length) {
+    values.push(applied.vendedores);
+    conditions.push(`d.vendedor = ANY($${values.length}::text[])`);
   }
-
-  const productCodes = normalizeProductCodes(
-    filters.productos ?? filters.producto
-  );
-
-  if (product && productCodes.length > 0) {
-    values.push(productCodes);
-    conditions.push(`
-      EXISTS (
-        SELECT 1
-        FROM detalle_documento fdd
-        WHERE fdd.documento_id = d.id
-          AND fdd.tipo_linea = 'PRODUCTO'
-          AND fdd.codigo_item = ANY($${values.length}::text[])
-      )
-    `);
+  if (product && hasLineSelection(applied)) {
+    const match = linePredicate("fdd", applied, values);
+    conditions.push(`EXISTS (
+      SELECT 1 FROM detalle_documento fdd
+      WHERE fdd.documento_id = d.id AND ${match}
+    )`);
   }
 
   return {
     where: conditions.length ? `WHERE ${conditions.join(" AND ")}` : "",
     values,
-    applied: {
-      desde,
-      hasta,
-      tienda: filters.tienda ? String(filters.tienda).trim() : null,
-      vendedores: sellerNames,
-      productos: productCodes,
-    },
+    applied,
   };
 }
 
 export async function getAnalyticsFilterOptions() {
-  const [periodResult, storesResult] = await Promise.all([
+  const [periodResult, storesResult, categoriesResult] = await Promise.all([
     pool.query(
       `SELECT
          TO_CHAR(MIN(fecha), 'YYYY-MM-DD') AS desde,
@@ -133,6 +146,13 @@ export async function getAnalyticsFilterOptions() {
          AND BTRIM(tienda) <> ''
        ORDER BY tienda`
     ),
+    pool.query(
+      `SELECT DISTINCT
+         COALESCE(NULLIF(BTRIM(categoria_general), ''), 'SIN CATEGORIA') AS categoria
+       FROM detalle_documento
+       WHERE tipo_linea = 'PRODUCTO'
+       ORDER BY categoria`
+    ),
   ]);
 
   return {
@@ -141,6 +161,7 @@ export async function getAnalyticsFilterOptions() {
       hasta: periodResult.rows[0]?.hasta ?? null,
     },
     tiendas: storesResult.rows.map((row) => row.tienda).filter(Boolean),
+    categoriasGenerales: categoriesResult.rows.map((row) => row.categoria),
   };
 }
 
@@ -157,12 +178,16 @@ export async function searchProductCodes(query, limit = 8) {
     `
       SELECT
         dd.codigo_item AS codigo,
-        MAX(dd.descripcion) AS descripcion
+        MAX(dd.descripcion) AS descripcion,
+        MAX(NULLIF(BTRIM(dd.codigo_ashley), '')) AS codigo_ashley
       FROM detalle_documento dd
       WHERE dd.tipo_linea = 'PRODUCTO'
         AND dd.codigo_item IS NOT NULL
         AND BTRIM(dd.codigo_item) <> ''
-        AND dd.codigo_item ILIKE '%' || $1 || '%'
+        AND (
+          dd.codigo_item ILIKE '%' || $1 || '%'
+          OR dd.codigo_ashley ILIKE '%' || $1 || '%'
+        )
       GROUP BY dd.codigo_item
       ORDER BY
         CASE
@@ -180,6 +205,7 @@ export async function searchProductCodes(query, limit = 8) {
   return result.rows.map((row) => ({
     codigo: row.codigo,
     descripcion: row.descripcion || row.codigo,
+    codigoAshley: row.codigo_ashley,
   }));
 }
 
@@ -249,15 +275,8 @@ export async function getProductAnalytics(filters = {}) {
     "BTRIM(dd.codigo_item) <> ''",
   ];
 
-  const productCodes = normalizeProductCodes(
-    filters.productos ?? filters.producto
-  );
-
-  if (productCodes.length > 0) {
-    values.push(productCodes);
-    productConditions.push(
-      `dd.codigo_item = ANY($${values.length}::text[])`
-    );
+  if (hasLineSelection(applied)) {
+    productConditions.push(linePredicate("dd", applied, values));
   }
 
   const documentWhere = where
@@ -406,6 +425,13 @@ export async function getProductAnalytics(filters = {}) {
 
 export async function getPerformanceAnalytics(filters = {}) {
   const { where, values, applied } = buildFilters(filters, { product: true });
+  const amount = hasLineSelection(applied)
+    ? `COALESCE((
+        SELECT SUM(COALESCE(pdd.total_bruto, 0))
+        FROM detalle_documento pdd
+        WHERE pdd.documento_id = d.id AND ${linePredicate("pdd", applied, values)}
+      ), 0)`
+    : "d.total_bruto";
 
   const result = await pool.query(
     `
@@ -415,7 +441,7 @@ export async function getPerformanceAnalytics(filters = {}) {
           d.tipo_documento,
           d.estado_analitico,
           d.cancelada_sap,
-          d.total_bruto,
+          ${amount} AS total_bruto,
           d.tienda,
           d.vendedor
         FROM documentos d
@@ -429,6 +455,10 @@ export async function getPerformanceAnalytics(filters = {}) {
         COUNT(*) FILTER (
           WHERE tipo_documento = 'OF'
         ) AS cotizaciones,
+        COUNT(*) FILTER (
+          WHERE tipo_documento = 'OF'
+            AND estado_analitico = 'PENDIENTE'
+        ) AS pendientes,
 
         COUNT(*) FILTER (
           WHERE tipo_documento IN ('FR', 'FD')
@@ -529,6 +559,7 @@ export async function getPerformanceAnalytics(filters = {}) {
       tienda: row.tienda,
       vendedor: row.vendedor,
       cotizaciones: integer(row.cotizaciones),
+      pendientes: integer(row.pendientes),
       ventas: integer(row.ventas),
       conversionPct: percentage(conVenta, resueltas),
       montoVendido: numeric(row.monto_vendido),
@@ -576,7 +607,16 @@ export async function getQuoteAnalytics(filters = {}) {
     ? " AND d.tipo_documento = 'OF'"
     : "WHERE d.tipo_documento = 'OF'";
 
+  const filtered = hasLineSelection(applied);
   const summaryValues = [...values];
+  const amountSelected = filtered
+    ? `COALESCE((
+        SELECT SUM(COALESCE(sm.total_bruto, 0))
+        FROM detalle_documento sm
+        WHERE sm.documento_id = d.id
+          AND ${linePredicate("sm", applied, summaryValues)}
+      ), 0)`
+    : "COALESCE(d.total_bruto, 0)";
 
   const summaryResult = await pool.query(
     `
@@ -594,7 +634,8 @@ export async function getQuoteAnalytics(filters = {}) {
         COUNT(*) FILTER (
           WHERE d.estado_analitico = 'CERRADA SIN VENTA'
         ) AS sin_venta,
-        COALESCE(SUM(d.total_bruto), 0) AS monto
+        COALESCE(SUM(d.total_bruto), 0) AS monto,
+        COALESCE(SUM(${amountSelected}), 0) AS monto_seleccionado
       FROM documentos d
       ${where}${extra}
     `,
@@ -602,59 +643,63 @@ export async function getQuoteAnalytics(filters = {}) {
   );
 
   const summaryRow = summaryResult.rows[0];
-  const productCodes = applied.productos ?? [];
+  const pendingValues = [...values];
+  const pendingAmount = filtered
+    ? `COALESCE((
+        SELECT SUM(COALESCE(pdd.total_bruto, 0))
+        FROM detalle_documento pdd
+        WHERE pdd.documento_id = d.id
+          AND ${linePredicate("pdd", applied, pendingValues)}
+      ), 0)`
+    : "COALESCE(d.total_bruto, 0)";
+  const pendingResult = await pool.query(
+    `SELECT d.numero_documento, TO_CHAR(d.fecha, 'YYYY-MM-DD') AS fecha,
+            d.tienda, ${pendingAmount} AS monto
+     FROM documentos d
+     ${where}${extra}
+       AND d.estado_analitico = 'PENDIENTE'
+     ORDER BY monto DESC, d.fecha ASC
+     LIMIT 5`,
+    pendingValues
+  );
   let matchingSelect = `
     '[]'::jsonb AS productos_coincidentes,
     0::integer AS cantidad_coincidencias,
     NULL::numeric AS unidades_coincidentes
   `;
 
-  if (productCodes.length > 0) {
-    values.push(productCodes);
-    const productParameter = "$" + values.length + "::text[]";
+  if (filtered) {
+    const matches = linePredicate("md", applied, values);
+    const countMatch = linePredicate("mc", applied, values);
+    const unitsMatch = linePredicate("mu", applied, values);
 
     matchingSelect = `
-      COALESCE(
-        (
-          SELECT jsonb_agg(
-            jsonb_build_object(
-              'codigo', coincidencias.codigo_item,
-              'cantidad', coincidencias.cantidad
-            )
-            ORDER BY coincidencias.codigo_item
-          )
-          FROM (
-            SELECT
-              md.codigo_item,
-              SUM(COALESCE(md.cantidad, 0)) AS cantidad
-            FROM detalle_documento md
-            WHERE md.documento_id = d.id
-              AND md.tipo_linea = 'PRODUCTO'
-              AND md.codigo_item = ANY(${productParameter})
-            GROUP BY md.codigo_item
-          ) AS coincidencias
-        ),
-        '[]'::jsonb
-      ) AS productos_coincidentes,
-      COALESCE(
-        (
-          SELECT COUNT(DISTINCT mc.codigo_item)
-          FROM detalle_documento mc
-          WHERE mc.documento_id = d.id
-            AND mc.tipo_linea = 'PRODUCTO'
-            AND mc.codigo_item = ANY(${productParameter})
-        ),
-        0
+      COALESCE((
+        SELECT jsonb_agg(
+          jsonb_build_object(
+            'codigo', coincidencias.codigo_item,
+            'codigoAshley', coincidencias.codigo_ashley,
+            'cantidad', coincidencias.cantidad,
+            'montoBruto', coincidencias.monto_bruto
+          ) ORDER BY coincidencias.monto_bruto DESC
+        )
+        FROM (
+          SELECT md.codigo_item,
+            MAX(NULLIF(BTRIM(md.codigo_ashley), '')) AS codigo_ashley,
+            SUM(COALESCE(md.cantidad, 0)) AS cantidad,
+            SUM(COALESCE(md.total_bruto, 0)) AS monto_bruto
+          FROM detalle_documento md
+          WHERE md.documento_id = d.id AND ${matches}
+          GROUP BY md.codigo_item
+        ) coincidencias
+      ), '[]'::jsonb) AS productos_coincidentes,
+      (SELECT COUNT(DISTINCT mc.codigo_item)
+       FROM detalle_documento mc
+       WHERE mc.documento_id = d.id AND ${countMatch}
       ) AS cantidad_coincidencias,
-      COALESCE(
-        (
-          SELECT SUM(COALESCE(mu.cantidad, 0))
-          FROM detalle_documento mu
-          WHERE mu.documento_id = d.id
-            AND mu.tipo_linea = 'PRODUCTO'
-            AND mu.codigo_item = ANY(${productParameter})
-        ),
-        0
+      COALESCE((SELECT SUM(COALESCE(mu.cantidad, 0))
+        FROM detalle_documento mu
+        WHERE mu.documento_id = d.id AND ${unitsMatch}), 0
       ) AS unidades_coincidentes
     `;
   }
@@ -678,6 +723,14 @@ export async function getQuoteAnalytics(filters = {}) {
     String(filters.orderDir ?? "").toLowerCase() === "asc"
       ? "ASC"
       : "DESC";
+
+  const pageSize = 100;
+  const totalRows = integer(summaryRow.total);
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+  const requestedPage = Math.max(1, Math.trunc(Number(filters.page) || 1));
+  const page = Math.min(requestedPage, totalPages);
+  values.push((page - 1) * pageSize);
+  const offsetParam = "$" + values.length;
 
   const result = await pool.query(
     `
@@ -707,20 +760,33 @@ export async function getQuoteAnalytics(filters = {}) {
       ORDER BY ${orderBy} ${orderDir} NULLS LAST,
                d.fecha DESC,
                d.numero_documento DESC
-      LIMIT 500
+      LIMIT 100 OFFSET ${offsetParam}
     `,
     values
   );
 
   return {
     filtros: applied,
+    paginacion: { pagina: page, paginas: totalPages, total: totalRows, porPagina: pageSize },
     resumen: {
       total: integer(summaryRow.total),
       pendientes: integer(summaryRow.pendientes),
       conVenta: integer(summaryRow.con_venta),
       sinVenta: integer(summaryRow.sin_venta),
       monto: numeric(summaryRow.monto),
+      montoSeleccionado: numeric(summaryRow.monto_seleccionado),
+      montoEsFiltrado: filtered,
+      tasaCierrePct: percentage(
+        integer(summaryRow.con_venta),
+        integer(summaryRow.con_venta) + integer(summaryRow.sin_venta)
+      ),
     },
+    topPendientes: pendingResult.rows.map((row) => ({
+      numero: row.numero_documento,
+      fecha: row.fecha,
+      tienda: row.tienda,
+      monto: numeric(row.monto),
+    })),
     orden: {
       campo: String(filters.orderBy ?? "fecha"),
       direccion: orderDir.toLowerCase(),
@@ -739,7 +805,9 @@ export async function getQuoteAnalytics(filters = {}) {
       productosCoincidentes: Array.isArray(row.productos_coincidentes)
         ? row.productos_coincidentes.map((item) => ({
             codigo: item.codigo,
+            codigoAshley: item.codigoAshley ?? null,
             cantidad: numeric(item.cantidad),
+            montoBruto: numeric(item.montoBruto),
           }))
         : [],
       cantidadCoincidencias: integer(row.cantidad_coincidencias),
@@ -757,29 +825,18 @@ export async function getSalesAnalytics(filters = {}) {
     ? " AND d.tipo_documento IN ('FR', 'FD')"
     : "WHERE d.tipo_documento IN ('FR', 'FD')";
 
-  const productCodes = applied.productos ?? [];
-  const hasProductFilter = productCodes.length > 0;
+  const hasProductFilter = hasLineSelection(applied);
 
   const summaryValues = [...values];
   let summaryAmountExpression = "COALESCE(d.total_bruto, 0)";
 
   if (hasProductFilter) {
-    summaryValues.push(productCodes);
-    const summaryProductParameter =
-      "$" + summaryValues.length + "::text[]";
-
-    summaryAmountExpression = `
-      COALESCE(
-        (
-          SELECT SUM(COALESCE(sd.total_bruto, 0))
-          FROM detalle_documento sd
-          WHERE sd.documento_id = d.id
-            AND sd.tipo_linea = 'PRODUCTO'
-            AND sd.codigo_item = ANY(${summaryProductParameter})
-        ),
-        0
-      )
-    `;
+    const matched = linePredicate("sd", applied, summaryValues);
+    summaryAmountExpression = `COALESCE((
+      SELECT SUM(COALESCE(sd.total_bruto, 0))
+      FROM detalle_documento sd
+      WHERE sd.documento_id = d.id AND ${matched}
+    ), 0)`;
   }
 
   const summaryResult = await pool.query(
@@ -815,53 +872,41 @@ export async function getSalesAnalytics(filters = {}) {
     summaryValues
   );
 
-  let resumenProductos = [];
+  const productSummaryValues = [...values];
+  const matched = linePredicate("dd", applied, productSummaryValues);
+  const productSummaryResult = await pool.query(
+    `
+      SELECT
+        dd.codigo_item AS codigo,
+        MAX(dd.descripcion) AS descripcion,
+        MAX(NULLIF(BTRIM(dd.codigo_ashley), '')) AS codigo_ashley,
+        COALESCE(SUM(dd.cantidad), 0) AS unidades_vendidas,
+        COALESCE(SUM(dd.total_bruto), 0) AS monto_vendido,
+        COUNT(DISTINCT d.id) AS documentos,
+        COUNT(DISTINCT d.id) FILTER (WHERE d.tipo_documento = 'FR') AS fr,
+        COUNT(DISTINCT d.id) FILTER (WHERE d.tipo_documento = 'FD') AS fd
+      FROM documentos d
+      INNER JOIN detalle_documento dd ON dd.documento_id = d.id
+      ${where}${extra}
+        AND COALESCE(d.cancelada_sap, 'N') = 'N'
+        AND ${matched}
+      GROUP BY dd.codigo_item
+      ORDER BY monto_vendido DESC
+      LIMIT 8
+    `,
+    productSummaryValues
+  );
 
-  if (hasProductFilter) {
-    const productSummaryValues = [...values, productCodes];
-    const productSummaryParameter =
-      "$" + productSummaryValues.length + "::text[]";
-
-    const productSummaryResult = await pool.query(
-      `
-        SELECT
-          dd.codigo_item AS codigo,
-          MAX(dd.descripcion) AS descripcion,
-          COALESCE(SUM(dd.cantidad), 0) AS unidades_vendidas,
-          COALESCE(SUM(dd.total_bruto), 0) AS monto_vendido,
-          COUNT(DISTINCT d.id) AS documentos,
-          COUNT(DISTINCT d.id) FILTER (
-            WHERE d.tipo_documento = 'FR'
-          ) AS fr,
-          COUNT(DISTINCT d.id) FILTER (
-            WHERE d.tipo_documento = 'FD'
-          ) AS fd
-        FROM documentos d
-        INNER JOIN detalle_documento dd
-          ON dd.documento_id = d.id
-        ${where}${extra}
-          AND COALESCE(d.cancelada_sap, 'N') = 'N'
-          AND dd.tipo_linea = 'PRODUCTO'
-          AND dd.codigo_item = ANY(${productSummaryParameter})
-        GROUP BY dd.codigo_item
-        ORDER BY array_position(
-          ${productSummaryParameter},
-          dd.codigo_item
-        )
-      `,
-      productSummaryValues
-    );
-
-    resumenProductos = productSummaryResult.rows.map((row) => ({
-      codigo: row.codigo,
-      descripcion: row.descripcion || row.codigo,
-      unidadesVendidas: numeric(row.unidades_vendidas),
-      montoVendido: numeric(row.monto_vendido),
-      documentos: integer(row.documentos),
-      fr: integer(row.fr),
-      fd: integer(row.fd),
-    }));
-  }
+  const resumenProductos = productSummaryResult.rows.map((row) => ({
+    codigo: row.codigo,
+    codigoAshley: row.codigo_ashley,
+    descripcion: row.descripcion || row.codigo,
+    unidadesVendidas: numeric(row.unidades_vendidas),
+    montoVendido: numeric(row.monto_vendido),
+    documentos: integer(row.documentos),
+    fr: integer(row.fr),
+    fd: integer(row.fd),
+  }));
 
   let matchingSelect = `
     '[]'::jsonb AS productos_coincidentes,
@@ -869,49 +914,35 @@ export async function getSalesAnalytics(filters = {}) {
   `;
 
   if (hasProductFilter) {
-    values.push(productCodes);
-    const productParameter = "$" + values.length + "::text[]";
-
+    const matchRows = linePredicate("md", applied, values);
+    const matchAmount = linePredicate("mm", applied, values);
     matchingSelect = `
-      COALESCE(
-        (
-          SELECT jsonb_agg(
-            jsonb_build_object(
-              'codigo', coincidencias.codigo_item,
-              'descripcion', coincidencias.descripcion,
-              'cantidad', coincidencias.cantidad,
-              'montoBruto', coincidencias.monto_bruto
-            )
-            ORDER BY array_position(
-              ${productParameter},
-              coincidencias.codigo_item
-            )
-          )
-          FROM (
-            SELECT
-              md.codigo_item,
-              MAX(md.descripcion) AS descripcion,
-              SUM(COALESCE(md.cantidad, 0)) AS cantidad,
-              SUM(COALESCE(md.total_bruto, 0)) AS monto_bruto
-            FROM detalle_documento md
-            WHERE md.documento_id = d.id
-              AND md.tipo_linea = 'PRODUCTO'
-              AND md.codigo_item = ANY(${productParameter})
-            GROUP BY md.codigo_item
-          ) AS coincidencias
-        ),
-        '[]'::jsonb
-      ) AS productos_coincidentes,
-      COALESCE(
-        (
-          SELECT SUM(COALESCE(mm.total_bruto, 0))
-          FROM detalle_documento mm
-          WHERE mm.documento_id = d.id
-            AND mm.tipo_linea = 'PRODUCTO'
-            AND mm.codigo_item = ANY(${productParameter})
-        ),
-        0
-      ) AS monto_coincidente
+      COALESCE((
+        SELECT jsonb_agg(
+          jsonb_build_object(
+            'codigo', coincidence.codigo_item,
+            'codigoAshley', coincidence.codigo_ashley,
+            'descripcion', coincidence.descripcion,
+            'cantidad', coincidence.cantidad,
+            'montoBruto', coincidence.monto_bruto
+          ) ORDER BY coincidence.monto_bruto DESC
+        )
+        FROM (
+          SELECT md.codigo_item,
+            MAX(NULLIF(BTRIM(md.codigo_ashley), '')) AS codigo_ashley,
+            MAX(md.descripcion) AS descripcion,
+            SUM(COALESCE(md.cantidad, 0)) AS cantidad,
+            SUM(COALESCE(md.total_bruto, 0)) AS monto_bruto
+          FROM detalle_documento md
+          WHERE md.documento_id = d.id AND ${matchRows}
+          GROUP BY md.codigo_item
+        ) coincidence
+      ), '[]'::jsonb) AS productos_coincidentes,
+      COALESCE((
+        SELECT SUM(COALESCE(mm.total_bruto, 0))
+        FROM detalle_documento mm
+        WHERE mm.documento_id = d.id AND ${matchAmount}
+      ), 0) AS monto_coincidente
     `;
   }
 
@@ -937,6 +968,15 @@ export async function getSalesAnalytics(filters = {}) {
     String(filters.orderDir ?? "").toLowerCase() === "asc"
       ? "ASC"
       : "DESC";
+
+  const summaryRow = summaryResult.rows[0];
+  const pageSize = 100;
+  const totalRows = integer(summaryRow.validas) + integer(summaryRow.canceladas);
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+  const requestedPage = Math.max(1, Math.trunc(Number(filters.page) || 1));
+  const page = Math.min(requestedPage, totalPages);
+  values.push((page - 1) * pageSize);
+  const offsetParam = "$" + values.length;
 
   const result = await pool.query(
     `
@@ -971,15 +1011,14 @@ export async function getSalesAnalytics(filters = {}) {
       ORDER BY ${orderBy} ${orderDir} NULLS LAST,
                d.fecha DESC,
                d.numero_documento DESC
-      LIMIT 500
+      LIMIT 100 OFFSET ${offsetParam}
     `,
     values
   );
 
-  const summaryRow = summaryResult.rows[0];
-
   return {
     filtros: applied,
+    paginacion: { pagina: page, paginas: totalPages, total: totalRows, porPagina: pageSize },
     resumen: {
       validas: integer(summaryRow.validas),
       fr: integer(summaryRow.fr),
@@ -1010,6 +1049,7 @@ export async function getSalesAnalytics(filters = {}) {
       productosCoincidentes: Array.isArray(row.productos_coincidentes)
         ? row.productos_coincidentes.map((item) => ({
             codigo: item.codigo,
+            codigoAshley: item.codigoAshley ?? null,
             descripcion: item.descripcion || item.codigo,
             cantidad: numeric(item.cantidad),
             montoBruto: numeric(item.montoBruto),

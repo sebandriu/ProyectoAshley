@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { getSalesAnalytics } from "../../services/api";
+import ProductScopeFilters from "../../components/ProductScopeFilters/ProductScopeFilters";
+import Pagination from "../../components/ProductScopeFilters/Pagination";
 
 const currency = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -80,7 +82,8 @@ function SaleMatches({ matches }) {
       {matches.map((item) => (
         <div className="sale-match-item" key={item.codigo}>
           <div className="sale-match-product">
-            <strong>{item.codigo}</strong>
+            <strong>{item.codigoAshley || item.codigo}</strong>
+            {item.codigoAshley && <small>SKU: {item.codigo}</small>}
             {item.descripcion && item.descripcion !== item.codigo && (
               <span className="sale-match-description">
                 {item.descripcion}
@@ -114,6 +117,8 @@ function Ventas() {
     montoEsFiltrado: false,
   });
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
   const [sort, setSort] = useState({
     key: "fecha",
     direction: "desc",
@@ -143,10 +148,15 @@ function Ventas() {
         searchParams.get("productos") ||
         searchParams.get("producto") ||
         undefined,
+      categoriaGeneral: searchParams.get("categoriaGeneral") || undefined,
+      codigoAshley: searchParams.get("codigoAshley") || undefined,
+      page,
       orderBy: sort.key,
       orderDir: sort.direction,
     };
-  }, [searchParams, sort]);
+  }, [searchParams, sort, page]);
+
+  useEffect(() => { setPage(1); }, [searchParams]);
 
   useEffect(() => {
     let active = true;
@@ -158,6 +168,7 @@ function Ventas() {
         if (!active) return;
 
         setData(response.ventas ?? []);
+        setPagination(response.paginacion ?? null);
         setProductSummary(response.resumenProductos ?? []);
         setSummary(
           response.resumen ?? {
@@ -182,34 +193,15 @@ function Ventas() {
     };
   }, [filters]);
 
-  const hasProductFilter = selectedProducts.length > 0;
-
-  const productBreakdown = useMemo(() => {
-    const summaryMap = new Map(
-      productSummary.map((item) => [
-        String(item.codigo).toUpperCase(),
-        item,
-      ])
-    );
-
-    return selectedProducts.map((code) => {
-      const found = summaryMap.get(String(code).toUpperCase());
-
-      return (
-        found ?? {
-          codigo: code,
-          descripcion: code,
-          unidadesVendidas: 0,
-          montoVendido: 0,
-          documentos: 0,
-          fr: 0,
-          fd: 0,
-        }
-      );
-    });
-  }, [productSummary, selectedProducts]);
+  const hasProductFilter = selectedProducts.length > 0 ||
+    Boolean(filters.categoriaGeneral || filters.codigoAshley);
+  const productBreakdown = productSummary.slice(0, 3);
+  const averageSelected = summary.validas > 0
+    ? Number(summary.monto || 0) / summary.validas
+    : 0;
 
   function handleSort(key, defaultDirection) {
+    setPage(1);
     setSort((current) => {
       if (current.key === key) {
         return {
@@ -228,41 +220,46 @@ function Ventas() {
 
   return (
     <div className="page">
+      <ProductScopeFilters />
       <section className="module-summary-grid">
         <article className="summary-card">
           <span>Ventas válidas</span>
           <strong>{summary.validas}</strong>
         </article>
         <article className="summary-card">
-          <span>FR</span>
-          <strong>{summary.fr}</strong>
+          <span>{hasProductFilter ? "Venta de productos filtrados" : "Monto vendido"}</span>
+          <strong>{currency.format(Number(summary.monto || 0))}</strong>
         </article>
         <article className="summary-card">
-          <span>FD</span>
-          <strong>{summary.fd}</strong>
+          <span>{hasProductFilter ? "Promedio filtrado por documento" : "Ticket promedio"}</span>
+          <strong>{summary.validas ? currency.format(averageSelected) : "—"}</strong>
         </article>
         <article className="summary-card">
-          <span>
-            {hasProductFilter
-              ? "Monto total seleccionado"
-              : "Monto vendido"}
-          </span>
-          <strong>
-            {currency.format(Number(summary.monto || 0))}
-          </strong>
+          <span>Canceladas</span>
+          <strong>{summary.canceladas}</strong>
         </article>
       </section>
 
-      {hasProductFilter && (
+      {status === "success" && (
+        <p className="module-insight">
+          <strong>{summary.fr} facturas de reserva</strong> (FR) y
+          {" "}<strong>{summary.fd} facturas de deudores</strong> (FD).
+          {hasProductFilter && (
+            <> Los montos corresponden exclusivamente a productos coincidentes;
+              las facturas completas se consultan en el detalle.</>
+          )}
+        </p>
+      )}
+
+      {status === "success" && productBreakdown.length > 0 && (
         <section className="panel sales-product-summary-panel">
           <header className="module-header">
             <div>
-              <span className="panel-eyebrow">Productos seleccionados</span>
-              <h2>Venta por código</h2>
+              <span className="panel-eyebrow">{hasProductFilter ? "Productos del filtro" : "Productos más vendidos"}</span>
+              <h2>Productos de mayor venta</h2>
             </div>
             <span className="module-count">
-              {selectedProducts.length}{" "}
-              {selectedProducts.length === 1 ? "código" : "códigos"}
+Top {productBreakdown.length}
             </span>
           </header>
 
@@ -274,7 +271,8 @@ function Ventas() {
               >
                 <div className="sales-product-summary-heading">
                   <div>
-                    <strong>{product.codigo}</strong>
+                    <strong>{product.codigoAshley || product.codigo}</strong>
+                    {product.codigoAshley && <span>SKU SAP: {product.codigo}</span>}
                     {product.descripcion &&
                       product.descripcion !== product.codigo && (
                         <span>{product.descripcion}</span>
@@ -316,19 +314,15 @@ function Ventas() {
             <span className="panel-eyebrow">Detalle comercial</span>
             <h2>Ventas</h2>
           </div>
-          <span className="module-count">{data.length} documentos</span>
+          <span className="module-count">{pagination?.total ?? 0} documentos encontrados</span>
         </header>
 
         {hasProductFilter && (
-          <div className="filter-context-note">
-            Cada código se muestra por separado con sus propias unidades y
-            su propio monto vendido. Si un código aparece varias veces dentro
-            de una misma FR/FD, Micapp agrupa esas líneas para ese código.
-            <strong> Monto seleccionados</strong> suma los importes de los
-            códigos buscados dentro del documento, mientras que
-            <strong> Total documento</strong> muestra la venta completa solo
-            como referencia.
-          </div>
+          <p className="module-subtitle">
+            Cada factura puede contener productos de distintas categorías.
+            El monto seleccionado suma solo las líneas del filtro;
+            el total de la factura se conserva como referencia.
+          </p>
         )}
 
         {status === "loading" && (
@@ -346,7 +340,9 @@ function Ventas() {
         )}
 
         {status === "success" && data.length > 0 && (
-          <div className="table-scroll">
+          <details className="module-details">
+            <summary>Ver detalle de facturas ({data.length})</summary>
+            <div className="table-scroll">
             <table
               className={
                 hasProductFilter
@@ -420,7 +416,7 @@ function Ventas() {
                     <>
                       <th>Detalle por código</th>
                       <SortableHeader
-                        label="Monto seleccionados"
+                        label="Monto seleccionado"
                         sortKey="montoSeleccionado"
                         sort={sort}
                         onSort={handleSort}
@@ -502,7 +498,9 @@ function Ventas() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+            <Pagination data={pagination} onChange={setPage} />
+          </details>
         )}
       </section>
     </div>

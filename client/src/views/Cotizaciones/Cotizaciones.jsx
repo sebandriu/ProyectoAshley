@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { getQuoteAnalytics } from "../../services/api";
+import ProductScopeFilters from "../../components/ProductScopeFilters/ProductScopeFilters";
+import Pagination from "../../components/ProductScopeFilters/Pagination";
 
 const currency = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -78,7 +80,7 @@ function formatMatches(matches) {
   return matches
     .map(
       (item) =>
-        `${item.codigo} ×${number.format(Number(item.cantidad || 0))}`
+        `${item.codigoAshley || item.codigo} ×${number.format(Number(item.cantidad || 0))}`
     )
     .join(" · ");
 }
@@ -87,6 +89,7 @@ function Cotizaciones() {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState("loading");
   const [data, setData] = useState([]);
+  const [topPending, setTopPending] = useState([]);
   const [summary, setSummary] = useState({
     total: 0,
     pendientes: 0,
@@ -95,6 +98,8 @@ function Cotizaciones() {
     monto: 0,
   });
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
   const [sort, setSort] = useState({
     key: "fecha",
     direction: "desc",
@@ -124,10 +129,15 @@ function Cotizaciones() {
         searchParams.get("productos") ||
         searchParams.get("producto") ||
         undefined,
+      categoriaGeneral: searchParams.get("categoriaGeneral") || undefined,
+      codigoAshley: searchParams.get("codigoAshley") || undefined,
+      page,
       orderBy: sort.key,
       orderDir: sort.direction,
     };
-  }, [searchParams, sort]);
+  }, [searchParams, sort, page]);
+
+  useEffect(() => { setPage(1); }, [searchParams]);
 
   useEffect(() => {
     let active = true;
@@ -138,6 +148,8 @@ function Cotizaciones() {
       .then((response) => {
         if (!active) return;
         setData(response.cotizaciones ?? []);
+        setTopPending(response.topPendientes ?? []);
+        setPagination(response.paginacion ?? null);
         setSummary(
           response.resumen ?? {
             total: 0,
@@ -161,6 +173,7 @@ function Cotizaciones() {
   }, [filters]);
 
   function handleSort(key, defaultDirection) {
+    setPage(1);
     setSort((current) => {
       if (current.key === key) {
         return {
@@ -177,28 +190,82 @@ function Cotizaciones() {
     });
   }
 
-  const hasProductFilter = selectedProducts.length > 0;
+  const hasProductFilter = selectedProducts.length > 0 ||
+    Boolean(filters.categoriaGeneral || filters.codigoAshley);
+  const closurePct = summary.tasaCierrePct;
+  const pendingShare = summary.total > 0
+    ? (summary.pendientes / summary.total) * 100
+    : 0;
 
   return (
     <div className="page">
+      <ProductScopeFilters />
       <section className="module-summary-grid">
         <article className="summary-card">
           <span>Cotizaciones</span>
           <strong>{summary.total}</strong>
         </article>
         <article className="summary-card">
-          <span>Con venta</span>
-          <strong>{summary.conVenta}</strong>
+          <span>Conversión de OF resueltas</span>
+          <strong>{closurePct == null ? "—" : `${number.format(closurePct)}%`}</strong>
         </article>
         <article className="summary-card">
           <span>Pendientes</span>
           <strong>{summary.pendientes}</strong>
         </article>
         <article className="summary-card">
-          <span>Monto cotizado</span>
-          <strong>{currency.format(Number(summary.monto || 0))}</strong>
+          <span>{hasProductFilter ? "Monto de productos filtrados" : "Monto cotizado (OF completas)"}</span>
+          <strong>{currency.format(Number(
+            hasProductFilter ? summary.montoSeleccionado : summary.monto
+          ) || 0)}</strong>
         </article>
       </section>
+
+      {status === "success" && summary.total > 0 && (
+        <p className="module-insight">
+          <strong>{summary.pendientes} OF pendientes</strong> ({number.format(pendingShare)}% de las OF).
+          {" "}{summary.conVenta} tienen venta y {summary.sinVenta} cerraron sin venta.
+          {hasProductFilter && (
+            <> El monto filtrado incluye solo líneas coincidentes; el total del documento se mantiene en el detalle.</>
+          )}
+        </p>
+      )}
+
+      {status === "success" && topPending.length > 0 && (
+        <section className="panel module-panel">
+          <header className="module-header">
+            <div>
+              <span className="panel-eyebrow">Seguimiento</span>
+              <h2>OF pendientes de mayor valor</h2>
+            </div>
+            <span className="module-count">Top {topPending.length}</span>
+          </header>
+          <div className="module-compact-list">
+            {topPending.slice(0, 3).map((quote) => (
+              <div key={quote.numero}>
+                <span>OF {quote.numero} · {quote.tienda || "Sin tienda"} · {formatDate(quote.fecha)}</span>
+                <strong>{currency.format(quote.monto)}</strong>
+              </div>
+            ))}
+          </div>
+          {topPending.length > 3 && (
+            <details className="module-details">
+              <summary>Ver las otras {topPending.length - 3} OF pendientes</summary>
+              <div className="module-compact-list">
+                {topPending.slice(3).map((quote) => (
+                  <div key={quote.numero}>
+                    <span>OF {quote.numero} · {quote.tienda || "Sin tienda"} · {formatDate(quote.fecha)}</span>
+                    <strong>{currency.format(quote.monto)}</strong>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+          <p className="module-subtitle">
+            Priorizadas por monto, no por antigüedad. Una OF pendiente no es una venta confirmada.
+          </p>
+        </section>
+      )}
 
       <section className="panel module-panel">
         <header className="module-header">
@@ -207,19 +274,16 @@ function Cotizaciones() {
             <h2>Cotizaciones</h2>
           </div>
           <span className="module-count">
-            {data.length} mostradas · {summary.total} encontradas
+            {pagination?.total ?? summary.total} encontradas
           </span>
         </header>
 
         {hasProductFilter && (
-          <div className="filter-context-note">
-            {selectedProducts.length > 1
-              ? "Con varios productos seleccionados, una OF aparece si contiene al menos uno de esos códigos. "
-              : "La OF aparece cuando contiene el producto seleccionado. "}
-            <strong>Coincidencias</strong> muestra exactamente cuáles de los
-            códigos filtrados están presentes y cuántas unidades se cotizaron.
-            El total bruto sigue correspondiendo a la OF completa.
-          </div>
+          <p className="module-subtitle">
+            Se muestran las OF que contienen productos coincidentes. Las unidades y
+            productos coincidentes corresponden al filtro; los totales de OF
+            permanecen completos como referencia.
+          </p>
         )}
 
         {status === "loading" && (
@@ -237,7 +301,9 @@ function Cotizaciones() {
         )}
 
         {status === "success" && data.length > 0 && (
-          <div className="table-scroll">
+          <details className="module-details">
+            <summary>Ver documentos ({data.length} mostrados, máximo 500)</summary>
+            <div className="table-scroll">
             <table className="analytics-table quotes-table">
               <thead>
                 <tr>
@@ -349,7 +415,9 @@ function Cotizaciones() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+            <Pagination data={pagination} onChange={setPage} />
+          </details>
         )}
       </section>
     </div>
