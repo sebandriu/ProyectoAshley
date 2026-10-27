@@ -35,6 +35,7 @@ function PerformanceTable({ rows, type }) {
             <th className="numeric">Ventas</th>
             <th className="numeric">Cierre OF</th>
             <th className="numeric">Monto vendido</th>
+            {type === "seller" && <th>Actividad reciente</th>}
           </tr>
         </thead>
         <tbody>
@@ -46,6 +47,15 @@ function PerformanceTable({ rows, type }) {
               <td className="numeric">{row.ventas}</td>
               <td className="numeric">{formatPercent(row.conversionPct)}</td>
               <td className="numeric">{currency.format(row.montoVendido)}</td>
+              {type === "seller" && (
+                <td>
+                  {row.actividadReciente ? (
+                    <span className="seller-recent-tag">Venta en últimos 90 días</span>
+                  ) : (
+                    <span className="seller-unknown-tag">Sin venta reciente</span>
+                  )}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -98,7 +108,14 @@ function TiendasVendedores() {
 
   const stores = data.tiendas ?? [];
   const sellers = data.vendedores ?? [];
-  const highlightedSellers = sellers.slice(0, 3).map((seller) => ({
+  const recentSellers = data.vendedoresRecientes ?? [];
+  const highlightedSellers = [...sellers]
+    .sort((a, b) =>
+      Number(b.actividadReciente) - Number(a.actividadReciente) ||
+      b.montoVendido - a.montoVendido
+    )
+    .slice(0, 3)
+    .map((seller) => ({
     ...seller,
     id: String(seller.tienda || "") + "|" + String(seller.vendedor || ""),
     label: seller.tienda
@@ -118,8 +135,8 @@ function TiendasVendedores() {
           <strong>{stores.length}</strong>
         </article>
         <article className="summary-card">
-          <span>Vendedores analizados</span>
-          <strong>{sellers.length}</strong>
+          <span>Vendedores con venta reciente</span>
+          <strong>{recentSellers.length}</strong>
         </article>
         <article className="summary-card">
           <span>Ventas</span>
@@ -156,9 +173,45 @@ function TiendasVendedores() {
             emptyMessage="Sin vendedores con actividad para construir el radar."
           />
           <p className="radar-chart-note">
-            Se comparan hasta tres vendedores ordenados por monto vendido,
-            respetando los filtros de la página.
+            Hasta tres vendedores del período, priorizando actividad comercial
+            reciente y luego monto vendido. Los valores reales y las
+            diferencias se muestran debajo del gráfico.
           </p>
+        </section>
+      )}
+
+      {status === "success" && (
+        <section className="panel module-panel seller-activity-panel">
+          <header className="module-header">
+            <div>
+              <span className="panel-eyebrow">Seguimiento comercial</span>
+              <h2>Vendedores con actividad reciente</h2>
+            </div>
+            <span className="module-count">{recentSellers.length}</span>
+          </header>
+          <p className="seller-activity-description">
+            Se consideran vendedores con alguna venta válida en los 90 días
+            anteriores a la última venta registrada
+            {data.fechaReferenciaActividad
+              ? ` (${data.fechaReferenciaActividad})`
+              : ""}. No vender durante dos semanas no los excluye.
+            Esto no certifica vigencia del contrato laboral.
+          </p>
+          {recentSellers.length > 0 ? (
+            <div className="seller-activity-list">
+              {recentSellers.map((row) => (
+                <span key={`${row.tienda}|${row.vendedor}`}>
+                  <strong>{row.vendedor}</strong>
+                  {" · "}{row.tienda || "Sin tienda"}
+                  {" · última venta "}{row.ultimaVenta}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="seller-activity-description">
+              No hay vendedores con ventas recientes en los datos importados.
+            </p>
+          )}
         </section>
       )}
 
