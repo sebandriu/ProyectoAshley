@@ -46,7 +46,7 @@ Las rutas de respaldo anteriores quedan fuera del repositorio. Si cambiaste las 
 
 ## Módulos para Store Manager
 
-- Cotizaciones, Ventas, Productos y Tiendas/Vendedores comparten el filtro de **categoría general** (`OITM.U_Cat_Gral`) y de **Código Ashley** (`OITM.U_NX_ItemCode`). El código Ashley es un identificador, no una segunda categoría. Pueden combinarse con los filtros existentes de fechas, tienda, vendedor y código SAP.
+- Cotizaciones, Ventas, Productos y Tiendas/Vendedores comparten **dos desplegables**: categoría general (`OITM.U_Cat_Gral`) y Código Ashley (`OITM.U_NX_ItemCode`). Las opciones Ashley se consultan desde PostgreSQL y se restringen a la categoría elegida; cambiar de categoría limpia el código previo. El Código Ashley es un identificador, no una segunda categoría. Pueden combinarse con los filtros existentes de fechas, tienda, vendedor y código SAP.
 - Con categoría o producto seleccionado, la cantidad de documentos refleja los documentos que lo contienen; los **montos filtrados** proceden solo de las líneas coincidentes. El total del documento completo, si se muestra, es referencial. Las líneas de servicio `700-*` no se cuentan como productos.
 - Cotizaciones destaca cierre de OF resueltas y las OF pendientes de mayor monto; Ventas destaca montos, cancelaciones y principales productos; Productos prioriza demanda no convertida; Tiendas/Vendedores presenta actividad reciente, líderes y OF pendientes.
 - La vista principal es breve y las tablas detalladas son desplegables. Los históricos de cotizaciones y ventas se recorren con paginación de 100 documentos, sin cortar los resultados en 500.

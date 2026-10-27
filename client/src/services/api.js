@@ -211,6 +211,13 @@ export function getAnalyticsFilters() {
   );
 }
 
+export function getAshleyCodeOptions(categoriaGeneral = "") {
+  return getJson(
+    "/analytics/codigos-ashley" + buildQuery({ categoriaGeneral }),
+    "No fue posible cargar los códigos Ashley."
+  );
+}
+
 export function searchProductCodes(query, limit = 8) {
   return getJson(
     "/analytics/productos/buscar" + buildQuery({ q: query, limit }),

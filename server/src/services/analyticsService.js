@@ -165,6 +165,41 @@ export async function getAnalyticsFilterOptions() {
   };
 }
 
+// Opciones reales para un desplegable, sin entrada de texto libre.
+// La categoría restringe la lista sin modificar los datos originales.
+export async function getAshleyCodeOptions(category = "") {
+  const selectedCategory = String(category ?? "").trim();
+  const values = [];
+  let byCategory = "";
+
+  if (selectedCategory) {
+    values.push(selectedCategory);
+    byCategory = `AND COALESCE(
+      NULLIF(BTRIM(dd.categoria_general), ''), 'SIN CATEGORIA'
+    ) = $1`;
+  }
+
+  const result = await pool.query(
+    `
+      SELECT
+        UPPER(BTRIM(dd.codigo_ashley)) AS codigo,
+        MAX(NULLIF(BTRIM(dd.descripcion), '')) AS descripcion
+      FROM detalle_documento dd
+      WHERE dd.tipo_linea = 'PRODUCTO'
+        AND NULLIF(BTRIM(dd.codigo_ashley), '') IS NOT NULL
+        ${byCategory}
+      GROUP BY UPPER(BTRIM(dd.codigo_ashley))
+      ORDER BY codigo
+    `,
+    values
+  );
+
+  return result.rows.map((row) => ({
+    codigo: row.codigo,
+    descripcion: row.descripcion ?? null,
+  }));
+}
+
 export async function searchProductCodes(query, limit = 8) {
   const term = String(query ?? "").trim();
 

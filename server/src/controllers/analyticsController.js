@@ -1,5 +1,6 @@
 import {
   getAnalyticsFilterOptions,
+  getAshleyCodeOptions,
   getPerformanceAnalytics,
   getProductAnalytics,
   getQuoteAnalytics,
@@ -41,6 +42,16 @@ export async function getFilters(_req, res) {
     return res.json(await getAnalyticsFilterOptions());
   } catch (error) {
     return handleError(res, error, "No fue posible obtener los filtros analíticos.");
+  }
+}
+
+export async function getAshleyCodes(req, res) {
+  try {
+    return res.json({
+      codigos: await getAshleyCodeOptions(req.query.categoriaGeneral),
+    });
+  } catch (error) {
+    return handleError(res, error, "No fue posible cargar códigos Ashley.");
   }
 }
 
