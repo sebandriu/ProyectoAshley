@@ -284,7 +284,7 @@ function parseLine(accessor, rowNumber) {
       accessor("BaseType", "Clase de documento base")
     ),
     baseEntry: toInteger(
-      accessor("BaseEntry", "Clave interna de documento base")
+      accessor("BaseEntry", "Clave interna de documento base", "ID interno de documento base")
     ),
     baseLine: toInteger(
       accessor(
