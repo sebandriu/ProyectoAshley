@@ -678,12 +678,14 @@ export async function getQuoteAnalytics(filters = {}) {
         SELECT jsonb_agg(
           jsonb_build_object(
             'codigo', coincidencias.codigo_item,
+            'codigoAshley', coincidencias.codigo_ashley,
             'cantidad', coincidencias.cantidad,
             'montoBruto', coincidencias.monto_bruto
           ) ORDER BY coincidencias.monto_bruto DESC
         )
         FROM (
           SELECT md.codigo_item,
+            MAX(NULLIF(BTRIM(md.codigo_ashley), '')) AS codigo_ashley,
             SUM(COALESCE(md.cantidad, 0)) AS cantidad,
             SUM(COALESCE(md.total_bruto, 0)) AS monto_bruto
           FROM detalle_documento md
@@ -803,6 +805,7 @@ export async function getQuoteAnalytics(filters = {}) {
       productosCoincidentes: Array.isArray(row.productos_coincidentes)
         ? row.productos_coincidentes.map((item) => ({
             codigo: item.codigo,
+            codigoAshley: item.codigoAshley ?? null,
             cantidad: numeric(item.cantidad),
             montoBruto: numeric(item.montoBruto),
           }))
@@ -918,6 +921,7 @@ export async function getSalesAnalytics(filters = {}) {
         SELECT jsonb_agg(
           jsonb_build_object(
             'codigo', coincidence.codigo_item,
+            'codigoAshley', coincidence.codigo_ashley,
             'descripcion', coincidence.descripcion,
             'cantidad', coincidence.cantidad,
             'montoBruto', coincidence.monto_bruto
@@ -925,6 +929,7 @@ export async function getSalesAnalytics(filters = {}) {
         )
         FROM (
           SELECT md.codigo_item,
+            MAX(NULLIF(BTRIM(md.codigo_ashley), '')) AS codigo_ashley,
             MAX(md.descripcion) AS descripcion,
             SUM(COALESCE(md.cantidad, 0)) AS cantidad,
             SUM(COALESCE(md.total_bruto, 0)) AS monto_bruto
@@ -1044,6 +1049,7 @@ export async function getSalesAnalytics(filters = {}) {
       productosCoincidentes: Array.isArray(row.productos_coincidentes)
         ? row.productos_coincidentes.map((item) => ({
             codigo: item.codigo,
+            codigoAshley: item.codigoAshley ?? null,
             descripcion: item.descripcion || item.codigo,
             cantidad: numeric(item.cantidad),
             montoBruto: numeric(item.montoBruto),
