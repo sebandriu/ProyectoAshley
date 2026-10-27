@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   getFilters,
+  getAshleyCodes,
   getPerformance,
   getProducts,
   getQuotes,
@@ -12,6 +13,7 @@ import {
 const router = Router();
 
 router.get("/filtros", getFilters);
+router.get("/codigos-ashley", getAshleyCodes);
 router.get("/productos/buscar", searchProducts);
 router.get("/vendedores/buscar", searchSellers);
 router.get("/productos", getProducts);
