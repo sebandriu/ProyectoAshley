@@ -543,6 +543,9 @@ export async function getKpiSummary(filters = {}) {
     current
   );
 
+  const hasPreviousData = previous &&
+    (previous.cotizaciones.total > 0 || previous.ventas.total > 0);
+
   const currentClosure = current.conversion.resueltasPct;
   const previousClosure = previous?.conversion?.resueltasPct ?? null;
 
@@ -555,7 +558,8 @@ export async function getKpiSummary(filters = {}) {
             hasta: current.filtros.hasta,
           },
           anterior: previousPeriod,
-          valoresAnteriores: previous
+          conDatos: Boolean(hasPreviousData),
+          valoresAnteriores: hasPreviousData
             ? {
                 montoVendidoBruto: previous.montos.vendidoBruto,
                 ventas: previous.ventas.total,
@@ -565,7 +569,7 @@ export async function getKpiSummary(filters = {}) {
                 cotizacionesPendientes: previous.cotizaciones.pendientes,
               }
             : null,
-          variaciones: previous
+          variaciones: hasPreviousData
             ? {
                 montoVendidoPct: percentageChange(
                   current.montos.vendidoBruto,
@@ -777,7 +781,7 @@ export async function getKpiEvolution(filters = {}) {
     granularity
   );
 
-  const previousPoints = previousResult
+  const previousPoints = previousResult?.rows.length
     ? fillSeries(
         previousResult.rows,
         previousResult.applied,
