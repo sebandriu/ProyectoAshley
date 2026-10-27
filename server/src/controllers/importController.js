@@ -109,40 +109,6 @@ export async function importExcel(req, res) {
     rawClient?.release();
   }
 
-  if (parsed.tipoInforme !== "CONSOLIDADO") {
-    try {
-      await pool.query(
-        `UPDATE importaciones
-         SET estado = 'COMPLETADA',
-             observacion = NULL
-         WHERE id = $1`,
-        [importacion.id]
-      );
-
-      return res.status(201).json({
-        importacionId: importacion.id,
-        archivo: req.file.originalname,
-        hoja: parsed.worksheetName,
-        tipoInforme: parsed.tipoInforme,
-        filasProcesadas: parsed.rows.length,
-        estado: "COMPLETADA",
-        fechaImportacion: importacion.fecha_importacion,
-        origenes: parsed.originCounts,
-        columnasIgnoradas: parsed.ignoredColumns,
-      });
-    } catch (error) {
-      console.error("Error al cerrar importación:", error);
-
-      return res.status(500).json({
-        message:
-          error.message ||
-          "Los datos RAW fueron guardados, pero no fue posible cerrar la importación.",
-        importacionId: importacion.id,
-        rawPreservado: true,
-      });
-    }
-  }
-
   let etlClient;
 
   try {

@@ -48,7 +48,7 @@ function Importacion() {
           <strong>Seleccionar archivo Excel</strong>
 
           <span>
-            Archivo .xlsx generado desde la consulta consolidada de Micapp
+            Excel .xlsx de la consulta consolidada V3 (CodigoAshley y CategoriaGeneral)
           </span>
 
           <input
@@ -91,13 +91,9 @@ function Importacion() {
               <p>Tipo detectado: {result.tipoInforme}</p>
               <p>Filas procesadas: {result.filasProcesadas}</p>
 
-              {result.tipoInforme === "CONSOLIDADO" && (
-                <>
-                  <p>OF: {result.origenes?.OF ?? 0}</p>
-                  <p>FR: {result.origenes?.FR ?? 0}</p>
-                  <p>FD: {result.origenes?.FD ?? 0}</p>
-                </>
-              )}
+              <p>OF: {result.origenes?.OF ?? 0}</p>
+              <p>FR: {result.origenes?.FR ?? 0}</p>
+              <p>FD: {result.origenes?.FD ?? 0}</p>
 
               <p>Hoja: {result.hoja}</p>
               <p>ID de importación: {result.importacionId}</p>

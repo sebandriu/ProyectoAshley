@@ -53,37 +53,38 @@ function findHeader(headers, ...aliases) {
   );
 }
 
-function detectReportType(headers) {
-  const has = (...aliases) => Boolean(findHeader(headers, ...aliases));
+function validateV3Headers(headers) {
+  const required = [
+    ["OrigenMicapp"],
+    ["Número interno", "DocEntry"],
+    ["N° Documento", "DocNum"],
+    ["N° Linea", "LineNum"],
+    ["Fecha"],
+    ["Estado SAP", "DocStatus"],
+    ["Cancelada", "CANCELED"],
+    ["Código", "ItemCode"],
+    ["CodigoAshley"],
+    ["CategoriaGeneral"],
+    ["Cantidad"],
+    ["Cantidad Pendiente", "OpenQty"],
+    ["Total Neto", "LineTotal"],
+    ["Total Bruto", "GTotal"],
+    ["TargetType"],
+    ["TargetEntry"],
+    ["BaseType"],
+    ["BaseEntry"],
+    ["BaseLine"],
+  ];
 
-  const isConsolidated =
-    has("OrigenMicapp") &&
-    has("Número interno", "Numero interno", "DocEntry") &&
-    has("N° Documento", "N Documento", "Numero Documento") &&
-    has("Fecha") &&
-    has("Código", "Codigo", "ItemCode") &&
-    has("Cantidad");
+  const missing = required
+    .filter((aliases) => !findHeader(headers, ...aliases))
+    .map(([name]) => name);
 
-  if (isConsolidated) return "CONSOLIDADO";
-
-  const isOffer =
-    has("N° Oferta", "N Oferta") &&
-    has("Fecha") &&
-    has("Código", "Codigo") &&
-    has("Cantidad");
-
-  if (isOffer) return "OF";
-
-  const isSales =
-    has("TipoDoc") &&
-    has("NumeroDoc") &&
-    has("Fecha") &&
-    has("ItemCode") &&
-    has("Cantidad");
-
-  if (isSales) return "VENTAS";
-
-  return null;
+  if (missing.length) {
+    throw new Error(
+      `El Excel no corresponde a la consulta consolidada V3. Faltan columnas: ${missing.join(", ")}.`
+    );
+  }
 }
 
 function normalizeValueForHeader(header, value) {
@@ -124,16 +125,8 @@ export async function readSapWorkbook(buffer) {
     throw new Error("No fue posible identificar los encabezados del archivo.");
   }
 
-  const tipoInforme = detectReportType(headers);
-
-  if (!tipoInforme) {
-    throw new Error(
-      "El archivo no coincide con los formatos reconocidos por Micapp."
-    );
-  }
-
-  const originHeader =
-    tipoInforme === "CONSOLIDADO" ? findHeader(headers, "OrigenMicapp") : null;
+  validateV3Headers(headers);
+  const originHeader = findHeader(headers, "OrigenMicapp");
 
   const originCounts = {
     OF: 0,
@@ -165,20 +158,18 @@ export async function readSapWorkbook(buffer) {
 
     if (!hasData) continue;
 
-    if (tipoInforme === "CONSOLIDADO") {
-      const origin = String(data[originHeader] ?? "")
-        .trim()
-        .toUpperCase();
+    const origin = String(data[originHeader] ?? "")
+      .trim()
+      .toUpperCase();
 
-      if (!CONSOLIDATED_ORIGINS.has(origin)) {
-        throw new Error(
-          `La fila ${rowNumber} tiene un OrigenMicapp inválido: "${origin || "(vacío)"}".`
-        );
-      }
-
-      data[originHeader] = origin;
-      originCounts[origin] += 1;
+    if (!CONSOLIDATED_ORIGINS.has(origin)) {
+      throw new Error(
+        `La fila ${rowNumber} tiene un OrigenMicapp inválido: "${origin || "(vacío)"}".`
+      );
     }
+
+    data[originHeader] = origin;
+    originCounts[origin] += 1;
 
     rows.push({
       rowNumber,
@@ -191,7 +182,7 @@ export async function readSapWorkbook(buffer) {
   }
 
   return {
-    tipoInforme,
+    tipoInforme: "CONSOLIDADO",
     headers: usableHeaders,
     rows,
     worksheetName: worksheet.name,
