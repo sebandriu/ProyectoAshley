@@ -250,11 +250,11 @@ function Ventas() {
         </p>
       )}
 
-      {hasProductFilter && (
+      {status === "success" && productBreakdown.length > 0 && (
         <section className="panel sales-product-summary-panel">
           <header className="module-header">
             <div>
-              <span className="panel-eyebrow">Productos del filtro</span>
+              <span className="panel-eyebrow">{hasProductFilter ? "Productos del filtro" : "Productos más vendidos"}</span>
               <h2>Productos de mayor venta</h2>
             </div>
             <span className="module-count">
