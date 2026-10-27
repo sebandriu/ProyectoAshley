@@ -287,12 +287,21 @@ function RadarChart({ rows = [], referenceRows, emptyMessage }) {
           <tbody>
             {axes.map((axis, index) => {
               const comparison = comparisons.find((c) => c.label === axis.label);
+              const topValue = Math.max(
+                0,
+                ...series.map((item) => item.values[index].raw ?? 0)
+              );
               return (
                 <tr key={axis.key}>
                   <th scope="row">{axis.label}</th>
                   {series.map((item) => (
                     <td key={item.id}>
                       <strong>{item.values[index].display}</strong>
+                      {series.length > 2 &&
+                        topValue > 0 &&
+                        item.values[index].raw === topValue && (
+                          <small className="radar-leader-label">Líder en este eje</small>
+                        )}
                       <div
                         className="radar-metric-track"
                         title={`Posición relativa: ${Math.round(item.values[index].score)} de 100`}
